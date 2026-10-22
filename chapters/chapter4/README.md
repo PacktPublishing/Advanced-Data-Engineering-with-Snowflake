@@ -40,7 +40,7 @@ Use this when following **Building Visual Integration Pipelines with OpenFlow** 
 5. **Snowsight UI**: **Ingestion » Openflow » Launch Openflow » Runtimes** tab, open `PARTNER_API_RUNTIME`, then import [rest-api-ingestion.json](rest-api-ingestion.json) as a process group or wire it by hand (InvokeHTTP → JoltTransformJSON → SplitJson `$.rates[*]` → PutSnowpipeStreaming; see **Block 5** and chapter section *Building the processor chain, Alpha Vantage FX_DAILY*).
 6. **When you finish the chapter**: run [chapter4_openflow_teardown.sql](chapter4_openflow_teardown.sql). The deployment's management compute pool bills for as long as the deployment exists, even with the runtime suspended. Between sessions, `ALTER OPENFLOW RUNTIME ... SUSPEND` is enough.
 
-Headless **Cortex** batch (optional): `.coco-prompts/chapter4-openflow-nifi-workflow.txt` with `cortex -c <connection> --bypass -p "$(cat …)"`.
+Headless **Cortex** batch (optional): `prompts/chapter4-openflow-nifi-workflow.txt` with `cortex -c <connection> --bypass -p "$(cat …)"`.
 
 ### SQL vs UI in gen 2
 

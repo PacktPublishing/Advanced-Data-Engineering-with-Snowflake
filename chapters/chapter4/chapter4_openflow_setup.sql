@@ -392,7 +392,7 @@ DESCRIBE OPENFLOW RUNTIME OPENFLOW_DB.CONTROL.partner_api_runtime;
 --
 -- 4) Scheduling is always on the canvas (timer-driven / triggers) — never SQL CRON.
 -- Full narrative: Chapter 4, section "Building a REST API Flow".
--- Cortex batch prompt: .coco-prompts/chapter4-openflow-nifi-workflow.txt
+-- Cortex batch prompt: prompts/chapter4-openflow-nifi-workflow.txt
 -- ---------------------------------------------------------------------------
 
 -- List gen 2 OpenFlow objects you can see
