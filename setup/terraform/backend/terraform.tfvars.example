@@ -1,0 +1,2 @@
+aws_region    = "ca-central-1"
+bucket_suffix = "change-me-abc123"

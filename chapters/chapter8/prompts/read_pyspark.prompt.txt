@@ -1,0 +1,5 @@
+Read jobs/daily_settlement.py. List: every data source and sink with
+format and save mode, every transformation in order, every UDF with its
+input and output types, and any use of cache, repartition, hints, or
+collect. Then state what this job produces, in one sentence, as a
+business output.

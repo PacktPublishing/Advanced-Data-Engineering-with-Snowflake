@@ -1,0 +1,17 @@
+Rewrite the scalar UDF in snowpark/udfs/scalar_risk_tier.py as a vectorized
+(pandas_udf) UDF that accepts two pd.Series inputs (risk_score, amount) and
+returns a pd.Series of risk-tier strings.
+
+Constraints:
+- Use numpy.select to express the four-branch decision; do not use Python
+  control flow over the Series.
+- Preserve UNKNOWN semantics: emit UNKNOWN only when both risk_score and
+  amount are NaN, matching the existing classify_risk_tier_vec_logic.
+- Decorate with @pandas_udf, register the function with is_permanent=True,
+  replace=True, stage_location="@gold_db.public.udf_stage".
+- Use PandasSeriesType(FloatType()) for both input_types and
+  PandasSeriesType(StringType()) for return_type.
+- Keep the registration inside a register(session: Session) function so the
+  unit tests can call the underlying logic without touching Snowflake.
+- Add a __main__ block that calls build_session() from snowpark.session and
+  invokes register, mirroring scalar_risk_tier.py.

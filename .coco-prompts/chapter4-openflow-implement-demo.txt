@@ -1,0 +1,26 @@
+Implement a **working lab** for OpenFlow REST prep using **Alpha Vantage FX_DAILY** API (free tier: 25 req/day, sign up at alphavantage.co/support).
+
+Use ROLE ACCOUNTADMIN, warehouse BOOK_WH, database RAW_DB, schema STREAMING.
+
+1. CREATE OR REPLACE TABLE RAW_DB.STREAMING.fx_daily_rates (
+     trade_date DATE, from_currency STRING, to_currency STRING,
+     open_rate NUMBER(12,6), high_rate NUMBER(12,6),
+     low_rate NUMBER(12,6), close_rate NUMBER(12,6),
+     _loaded_at TIMESTAMP_NTZ
+   );
+   IMPORTANT: No DEFAULT values — PutSnowpipeStreaming rejects tables with DEFAULT, AUTOINCREMENT, IDENTITY, GEO, or collation columns.
+
+2. Egress: align with **Section 4.2** in the repo — **alphavantage_network_rule** (www.alphavantage.co:443) + **partner_api_network_rule** (api.partner-network.com:443), and **partner_api_access** with ALLOWED_NETWORK_RULES = (both). Use CREATE ... IF NOT EXISTS, and ALTER EXTERNAL ACCESS INTEGRATION ... SET ALLOWED_NETWORK_RULES to change it. Never CREATE OR REPLACE the rules or the integration: it silently detaches them from the OpenFlow runtime.
+
+3. SECRET: RAW_DB.STREAMING.partner_api_key — use your Alpha Vantage API key (free tier).
+
+4. Role **openflow_runtime_role**: create if not exists; GRANT USAGE, OPERATE on BOOK_WH; USAGE on DB/SCHEMA; INSERT,SELECT on fx_daily_rates; USAGE ON INTEGRATION partner_api_access.
+   GRANT ROLE openflow_runtime_role TO ROLE OPENFLOW_ADMIN. Also USAGE on OPENFLOW_DB and OPENFLOW_DB.CONTROL. It is the runtime's EXECUTE_AS_ROLE.
+
+5. Run SHOW OPENFLOW DEPLOYMENTS; and SHOW OPENFLOW RUNTIMES IN ACCOUNT; paste first rows (gen 2 objects; DATA PLANE INTEGRATIONS are gen 1).
+
+6. SELECT COUNT(*) FROM RAW_DB.STREAMING.fx_daily_rates;
+
+7. Confirm PARTNER_API_ACCESS is bound to the runtime: DESCRIBE OPENFLOW RUNTIME OPENFLOW_DB.CONTROL.partner_api_runtime; if missing, ALTER OPENFLOW RUNTIME OPENFLOW_DB.CONTROL.partner_api_runtime ADD EXTERNAL_ACCESS_INTEGRATIONS = (partner_api_access);
+
+Report exact errors if any step fails. Do not invent CREATE PIPELINE SQL.

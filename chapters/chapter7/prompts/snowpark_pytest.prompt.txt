@@ -1,0 +1,19 @@
+Write a pytest test module under tests/unit that exercises the Snowpark
+DataFrame transformation in snowpark/dataframe_api/monthly_revenue.py against
+the local_session fixture defined in tests/conftest.py.
+
+Constraints:
+- Use snowflake.snowpark.types StructType / StructField with explicit types
+  matching fact_transactions: transaction_id STRING, customer_id STRING,
+  merchant_id STRING, transaction_ts TIMESTAMP, amount FLOAT, status STRING,
+  risk_score FLOAT.
+- Seed the DataFrame with at least three customers and a mix of COMPLETED
+  and PENDING rows so the filter is exercised.
+- Assert that the COMPLETED-only filter is correct, that grouped revenue
+  sums match a hand-computed expectation, and that the ordering is stable.
+- Never call .to_pandas() inside the chain under test; use .collect() at
+  the assertion boundary only.
+- Skip integration warehouses entirely; the test must pass with no network
+  access.
+
+Reference style: tests/unit/test_dataframes.py.

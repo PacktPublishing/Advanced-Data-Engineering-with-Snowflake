@@ -1,0 +1,42 @@
+aws_region     = "ca-central-1"
+aws_account_id = "123456789012"
+bucket_suffix  = "change-me-abc123"
+
+# Named CLI profile (SSO, etc.): export AWS_PROFILE=my-profile before terraform (same as aws CLI).
+
+# Phase 2 — fill these after DESCRIBE EXTERNAL VOLUME / DESCRIBE CATALOG INTEGRATION
+# snowflake_ext_vol_iam_arn  = "arn:aws:iam::..."
+# snowflake_ext_vol_ext_id   = "..."
+# snowflake_glue_iam_arn     = "arn:aws:iam::..."
+# snowflake_glue_ext_id      = "..."
+# snowflake_s3tables_iam_arn = "arn:aws:iam::..."
+# snowflake_s3tables_ext_id  = "..."
+
+# Phase 2 — fill after DESCRIBE INTEGRATION lake_int (Ch.3 / Ch.8 external stage)
+# snowflake_stage_iam_arn    = "arn:aws:iam::..."
+# snowflake_stage_ext_id     = "..."
+
+# Chapter 4 — streaming infrastructure (optional, off by default)
+# enable_msk     = true
+# enable_kinesis = true
+
+# WireGuard into MSK VPC (ECS on EC2). Requires enable_msk.
+# enable_vpn      = true
+# vpn_admin_cidr  = "203.0.113.50/32"
+
+# SSH bastion (simpler for Mac): same VPC, SSH from your IP only — run MSK producer here
+# enable_bastion         = true
+# bastion_ssh_cidr       = "203.0.113.50/32"
+# bastion_ssh_public_key = "ssh-ed25519 AAAA... comment"
+
+# MSK Connect — managed Kafka Connect for Snowflake sink (requires enable_msk)
+# Download the connector JAR, package as ZIP:
+#   curl -L -o snowflake-kafka-connector-2.4.1.jar \
+#     "https://repo1.maven.org/maven2/com/snowflake/snowflake-kafka-connector/2.4.1/snowflake-kafka-connector-2.4.1.jar"
+#   zip snowflake-kafka-connector-2.4.1.zip snowflake-kafka-connector-2.4.1.jar
+#
+# enable_msk_connect            = true
+# snowflake_account_url         = "xy12345.snowflakecomputing.com"
+# snowflake_streaming_user      = "STREAMING_INGEST_USER"
+# snowflake_private_key_pem     = "MIIEv..."   # PEM body only (no -----BEGIN/END-----)
+# msk_connect_plugin_local_path = "snowflake-kafka-connector-2.4.1.zip"

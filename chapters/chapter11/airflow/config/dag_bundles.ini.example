@@ -1,0 +1,29 @@
+# Chapter 11, Section 5.5: versioned DAG source through a Git bundle.
+#
+# A bundle replaces the "folder of files that changes underneath the scheduler"
+# model. Each DAG run records the commit it was created with, so a rerun uses
+# the same code even if the repository has moved on, and a backfill chooses
+# between replaying the original code and the current code with
+# --run-on-latest-version.
+#
+# Copy the block below into airflow.cfg, or set it as the environment variable
+# AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_CONFIG_LIST (JSON, one line). It needs
+# apache-airflow-providers-git installed, which airflow/requirements.txt pins.
+#
+# tracking_ref takes a branch, a tag, or a commit SHA. A branch name tracks
+# whatever lands on it, which is convenient in development and is NOT a pin;
+# for a reproducible deployment, point it at a tag or SHA the way the Prefect
+# deployment pins commit_sha.
+
+[dag_processor]
+dag_bundle_config_list = [
+    {
+      "name": "techflow-dags",
+      "classpath": "airflow.providers.git.bundles.git.GitDagBundle",
+      "kwargs": {
+        "git_conn_id": "github_techflow",
+        "subdir": "chapters/chapter11/airflow/dags",
+        "tracking_ref": "main"
+      }
+    }
+  ]

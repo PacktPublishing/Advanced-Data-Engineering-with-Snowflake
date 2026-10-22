@@ -1,0 +1,12 @@
+Scan every *.py file under jobs/. For each file, list: the PySpark APIs
+used, any pyspark.RDD / pyspark.ml / pyspark.streaming imports, every
+spark.read.* and df.write.* call with its format and save mode, every
+UDF definition, and any spark.conf or JAR dependency. Also inspect the
+orchestration definitions supplied with the repository. Record upstream
+job IDs, downstream consumers, the input batch or partition, completion
+signals, interface assumptions, and the dependency owner. Cite the file
+and task or schedule that establishes each relationship. Mark missing
+evidence as unknown; never infer independence from a missing job file.
+Output a markdown table, one row per file, and list unresolved dependencies.
+Flag any call with no Snowpark Connect equivalent. Propose a wave only
+after checking dependency readiness; keep unknown or blocked jobs pending.

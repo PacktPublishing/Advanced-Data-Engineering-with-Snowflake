@@ -1,0 +1,5 @@
+# Chapter 19; manifest v1. Doc-checked, not installed live. No placeholders.
+manifest_version: 1
+artifacts:
+  setup_script: setup.sql
+  default_streamlit: app_public.dashboard

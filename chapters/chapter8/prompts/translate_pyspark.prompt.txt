@@ -1,0 +1,7 @@
+$pyspark-to-snowpark-translator
+Rewrite jobs/merchant_rollup.py to run on Snowpark Connect. Keep the
+DataFrame API surface. Redirect s3a:// reads to @lake_stage paths.
+Rework any Append save mode per the skill's rules. Remove hints,
+repartition, and cache calls. Flag, do not silently rewrite, any API
+with no direct equivalent, any UDF whose semantics change, and any
+type coercion that affects this job's output columns.

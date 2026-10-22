@@ -1,0 +1,121 @@
+# Chapter 6 CI: lint, clone prod into the CI target, build only what changed, and
+# diff the changed models against prod.
+#
+# This file is mirrored at chapters/chapter6/ci/github-actions-ci.yml so readers
+# find it beside the chapter code. The two must stay byte-identical; the
+# "Check the chapter copy matches" step fails the build if they drift.
+name: Chapter 6 CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'chapters/chapter6/**'
+      - '.github/workflows/chapter6-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
+      SF_USER: ${{ secrets.SF_USER }}
+      SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
+      # No ACCOUNTADMIN fallback on purpose. A missing secret should fail the run,
+      # not connect with more privilege than the pipeline needs.
+      SF_ROLE: ${{ secrets.SF_ROLE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The per-model diff compares against the PR base, so the job needs
+          # history rather than the default shallow clone.
+          fetch-depth: 0
+
+      - name: Check the chapter copy matches
+        run: |
+          diff .github/workflows/chapter6-ci.yml \
+               chapters/chapter6/ci/github-actions-ci.yml
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        # requirements.txt already pins sqlfluff alongside dbt and SQLMesh.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r chapters/chapter6/requirements.txt
+
+      - name: Create dbt profile
+        # Reuse the committed profile instead of duplicating it here, so the CI
+        # connection and the documented local one cannot drift.
+        run: |
+          mkdir -p ~/.dbt
+          cp chapters/chapter6/dbt/profiles.yml ~/.dbt/profiles.yml
+
+      - name: Install dbt packages
+        working-directory: chapters/chapter6/dbt/techflow_warehouse
+        run: dbt deps
+
+      - name: Lint SQL
+        working-directory: chapters/chapter6/dbt/techflow_warehouse
+        run: sqlfluff lint models/
+
+      - name: Clone prod schemas into the CI target
+        # Zero-copy clones give incremental models a real MERGE target and the
+        # diff a production baseline. generate_schema_name appends '__ci' on this
+        # target, so the build lands in exactly these cloned schemas.
+        working-directory: chapters/chapter6/dbt/techflow_warehouse
+        run: dbt run-operation clone_prod_to_ci --target ci
+
+      - name: Fetch the prod manifest
+        # State deferral needs the manifest from the last prod run. Without AWS
+        # credentials the job still runs, it just builds the whole project.
+        id: manifest
+        working-directory: chapters/chapter6/dbt/techflow_warehouse
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "No AWS credentials set; building the whole project."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p prod-artifacts
+          aws s3 cp s3://techflow-dbt-artifacts/manifest.json \
+            prod-artifacts/manifest.json
+          echo "available=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test
+        working-directory: chapters/chapter6/dbt/techflow_warehouse
+        run: |
+          if [ "${{ steps.manifest.outputs.available }}" = "true" ]; then
+            dbt build --target ci \
+              --select state:modified+ \
+              --defer --state prod-artifacts
+          else
+            dbt build --target ci
+          fi
+
+      - name: Diff changed models against prod
+        working-directory: chapters/chapter6/dbt/techflow_warehouse
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "${BASE_SHA}" ]; then
+            echo "Not a pull request; skipping the per-model diff."
+            exit 0
+          fi
+          changed=$(git diff --name-only "${BASE_SHA}" HEAD -- 'models/**/*.sql')
+          if [ -z "${changed}" ]; then
+            echo "No model files changed; nothing to diff."
+            exit 0
+          fi
+          for path in ${changed}; do
+            model=$(basename "${path}" .sql)
+            echo "::group::diff ${model}"
+            dbt run-operation audit_helper_compare \
+              --target ci --args "{model: ${model}}"
+            echo "::endgroup::"
+          done

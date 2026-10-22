@@ -1,0 +1,37 @@
+You have access to Snowflake documentation search and SQL against the connected account (book).
+
+Task: Produce an authoritative, version-aware summary for authors updating a technical book (early 2026).
+
+1. Search Snowflake docs and/or run SQL for catalog views about:
+   - OpenFlow vs "pipelines" vs Snowpipe PIPE objects — disambiguate names.
+   - Whether CREATE PIPELINE, ALTER PIPELINE, EXECUTE PIPELINE, SHOW PIPELINES are valid in current Snowflake; if yes, link to exact doc pages and show minimal working examples. If no, state clearly that OpenFlow is UI- or API-driven and what replaces book examples.
+   - INFORMATION_SCHEMA or ACCOUNT_USAGE views for pipeline/OpenFlow run history (correct names).
+
+2. From the connected account, run read-only discovery SQL where helpful, e.g.:
+   - SHOW COMMANDS or list object types if available
+   - SELECT from INFORMATION_SCHEMA tables/views matching '%PIPE%'
+   Document what exists vs what errors.
+
+3. Recommend a **demo pattern** for a book chapter that works on Enterprise+ with External Access:
+   - REST example using Alpha Vantage FX_DAILY (www.alphavantage.co) — free tier, fintech-relevant for TechFlow Payments narrative (cross-border FX settlement)
+   - Exact Snowsight navigation path as of current UI (Ingestion » Openflow, etc.)
+   - What SQL objects MUST exist beforehand: NETWORK RULE, EXTERNAL ACCESS INTEGRATION, SECRET, GRANT USAGE ON INTEGRATION, target table DDL (NO DEFAULT values — Snowpipe Streaming requirement)
+   - Validated 4-processor NiFi chain: InvokeHTTP → JoltTransformJSON (3-op chain) → SplitJson → PutSnowpipeStreaming (SNOWFLAKE_SESSION_TOKEN auth)
+   - OpenFlow gen 2 (GA 2026-09-08; gen 1 deployment creation retired 2026-09-09): deployment and runtime are SQL objects (CREATE OPENFLOW DEPLOYMENT, CREATE OPENFLOW RUNTIME ... IN DEPLOYMENT ... EXECUTE_AS_ROLE ... EXTERNAL_ACCESS_INTEGRATIONS). What the reader does ONLY in the OpenFlow UI: build the custom flow on the canvas (or import the flow JSON)
+   - Key gotchas from field testing: Jolt DSL internal value "jolt-transform-chain" not "Chain"; GRANT ROLE to OPENFLOW_ADMIN; no DEFAULT columns for Snowpipe Streaming; Jolt before Split to preserve currency metadata
+   - Optional: Snowflake REST API or Terraform if that is the supported automation path instead of SQL
+
+4. Explicitly call out **incorrect or misleading patterns** to remove from old drafts, e.g.:
+   - ALTER PIPELINE ... SET SCHEDULE if unsupported
+   - PIPELINE_HISTORY if wrong name or schema
+   - CREATE PIPELINE ... INSERT FROM @kafka_stage if that is not how OpenFlow Kafka works
+   - PutDatabaseRecord with JDBC pools (replaced by PutSnowpipeStreaming with session token auth)
+   - JSONPlaceholder as demo API (replaced by Alpha Vantage FX_DAILY for fintech relevance)
+
+Output format:
+- Section A: Facts (bullet list, each with doc URL or SQL evidence)
+- Section B: Replacement lab steps for the book (numbered)
+- Section C: Sample SQL block(s) that are safe to publish (no secrets; use placeholders <REPLACE:> where needed)
+- Section D: One paragraph "author note" on trial vs paid account limitations
+
+Be concise; prioritize accuracy over completeness.

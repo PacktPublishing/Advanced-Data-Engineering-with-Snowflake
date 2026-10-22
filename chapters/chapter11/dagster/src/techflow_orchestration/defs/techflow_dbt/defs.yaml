@@ -1,0 +1,9 @@
+type: dagster_dbt.DbtProjectComponent
+
+# One shared dbt project lives in Chapter 6; there is no chapter-11 copy. The dg
+# project root is chapters/chapter11/dagster, so the relative path climbs to
+# chapters/ and into chapter6. Copy profiles.yml.example to profiles.yml in that
+# project (the same setup the other tools need) before loading definitions.
+attributes:
+  project: "{{ context.project_root }}/../../chapter6/dbt/techflow_warehouse"
+  select: "tag:nightly"

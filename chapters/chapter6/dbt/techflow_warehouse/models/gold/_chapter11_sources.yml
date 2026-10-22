@@ -1,0 +1,19 @@
+version: 2
+
+# Added by Chapter 11 (external orchestration). The cleanse step in Chapter 9
+# produces silver_db.transactions.transactions_clean; declaring it as a source
+# lets the merchant_activity mart read it, and the pinned Dagster asset key makes
+# the dbt models connect to the hand-written transactions_clean asset. Without
+# the pin the source would get the default ["transactions", "transactions_clean"]
+# key, which would not match the Python asset.
+sources:
+  - name: transactions
+    database: silver_db
+    schema: transactions
+    tables:
+      - name: transactions_clean
+        description: "Cleansed transactions the nightly marts read."
+        config:
+          meta:
+            dagster:
+              asset_key: ["transactions_clean"]

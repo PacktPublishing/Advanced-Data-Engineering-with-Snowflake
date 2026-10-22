@@ -1,0 +1,9 @@
+# Static analysis and non-mutating tests.
+pytest
+pyyaml
+ruff
+sqlfluff
+
+# For running upload_scores.py (the fraud-score simulator) locally.
+boto3>=1.34
+pyarrow>=16

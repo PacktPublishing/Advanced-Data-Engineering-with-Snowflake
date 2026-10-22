@@ -1,0 +1,11 @@
+# Terraform state can contain sensitive values; store it in a shared remote
+# backend, never in Git (Section 2.4).
+.terraform/
+# Commit .terraform.lock.hcl so local and CI runs use the selected provider.
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Local variable overrides may hold connection details.
+terraform.tfvars
+*.auto.tfvars

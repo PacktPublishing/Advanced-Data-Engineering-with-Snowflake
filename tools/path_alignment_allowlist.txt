@@ -1,0 +1,8 @@
+# Intentional illustrative paths that are not shipped files.
+# One substring per line; any reference containing it is skipped.
+jobs/merchant_rollup.py
+techflow-dbt-artifacts/manifest.json
+.github/workflows/ci.yml
+your_
+example.
+airflow.providers.

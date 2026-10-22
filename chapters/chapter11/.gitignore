@@ -1,0 +1,37 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# dbt runs the shared Chapter 6 project (chapters/chapter6/dbt/techflow_warehouse),
+# which carries its own .gitignore; nothing dbt-related is written under chapter11.
+
+# Airflow
+airflow/logs/
+airflow/plugins/__pycache__/
+airflow/standalone_admin_password.txt
+airflow/airflow.db
+
+# Prefect
+prefect/.prefect/
+
+# Terraform (Chapter 11 S3 / IAM)
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/tfplan
+infra/terraform.tfvars
+
+# Local key copies (never commit)
+secrets/
+*.p8
+*.pub
+
+# Dagster
+dagster/.dagster/
+dagster/storage/
+dagster/history/
+dagster/logs/
+dagster/src/*/defs/**/.local_defs_state/

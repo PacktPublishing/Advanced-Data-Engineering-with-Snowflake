@@ -1,0 +1,4 @@
+# MSK IAM producer (produce_fraud_events_msk.py)
+confluent-kafka>=2.3.0
+boto3>=1.34.0
+aws-msk-iam-sasl-signer-python>=1.0.1

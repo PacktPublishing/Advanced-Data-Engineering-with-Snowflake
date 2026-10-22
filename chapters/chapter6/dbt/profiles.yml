@@ -1,0 +1,36 @@
+# Profile used by CI, which writes this file to ~/.dbt/profiles.yml. Kept here so
+# the workflow and the local setup stay in one place.
+#
+# SF_ROLE has no default on purpose: dbt fails with a clear "env var required"
+# message instead of silently connecting as a highly privileged role.
+#
+# The `schema` below is only the fallback for a model that declares no custom
+# schema. Every model sets its own, and macros/generate_schema_name.sql uses that
+# value verbatim, appending '__ci' only on the ci target, which is what makes the
+# CI build land in the schemas clone_prod_to_ci clones.
+
+techflow_warehouse:
+  target: ci
+  outputs:
+    ci:
+      type: snowflake
+      account: "{{ env_var('SF_ACCOUNT') }}"
+      user: "{{ env_var('SF_USER') }}"
+      password: "{{ env_var('SF_PASSWORD') }}"
+      role: "{{ env_var('SF_ROLE') }}"
+      warehouse: BOOK_WH
+      database: silver_db
+      schema: public
+      threads: 4
+      client_session_keep_alive: false
+    dev:
+      type: snowflake
+      account: "{{ env_var('SF_ACCOUNT') }}"
+      user: "{{ env_var('SF_USER') }}"
+      password: "{{ env_var('SF_PASSWORD') }}"
+      role: "{{ env_var('SF_ROLE') }}"
+      warehouse: BOOK_WH
+      database: silver_db
+      schema: public
+      threads: 4
+      client_session_keep_alive: false

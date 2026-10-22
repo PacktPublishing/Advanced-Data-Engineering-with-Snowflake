@@ -1,0 +1,69 @@
+services:
+  airflow:
+    build:
+      context: .
+      args:
+        AIRFLOW_VERSION: "3.3.0"
+    command: standalone
+    init: true
+    user: "${AIRFLOW_UID:-50000}:0"
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/chapter11/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW_CONN_SNOWFLAKE_TECHFLOW: "${AIRFLOW_CONN_SNOWFLAKE_TECHFLOW:-}"
+      AIRFLOW_CONN_AWS_TECHFLOW: "${AIRFLOW_CONN_AWS_TECHFLOW:-}"
+      # Cosmos LOCAL execution shells out to dbt, which writes target and logs.
+      # Redirect both to the writable tmpfs so the mounted project stays clean.
+      DBT_TARGET_PATH: /tmp/dbt_target
+      DBT_LOG_PATH: /tmp/dbt_logs
+    volumes:
+      - airflow-home:/opt/airflow
+      # Read-write so Cosmos local dbt runs can compile; dbt targets/logs are
+      # redirected to tmpfs above, so nothing is written back into the project.
+      - ..:/opt/airflow/chapter11
+      # The single shared dbt project lives in Chapter 6; the DAG derives its
+      # path as ../chapter6 relative to the chapter11 folder. Run `dbt deps` in
+      # that project on the host first so dbt_packages is present (the DAG runs
+      # Cosmos with install_deps disabled and reads a pre-built manifest).
+      - ../../chapter6:/opt/airflow/chapter6:ro
+    tmpfs:
+      - /tmp
+    depends_on:
+      marketing-api:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  marketing-api:
+    build:
+      context: ../marketing_api
+    init: true
+    read_only: true
+    ports:
+      - "127.0.0.1:18080:8080"
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  airflow-home:

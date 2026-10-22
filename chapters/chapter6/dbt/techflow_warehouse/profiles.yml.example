@@ -1,0 +1,36 @@
+# Copy to ~/.dbt/profiles.yml (or merge the techflow_warehouse block into your
+# existing file) and export SF_ACCOUNT, SF_USER, SF_PASSWORD, and SF_ROLE.
+#
+# SF_ROLE has no default on purpose: dbt fails with a clear "env var required"
+# message instead of silently connecting as a highly privileged role. Use the
+# least-privilege role from the chapter, not ACCOUNTADMIN.
+#
+# The `schema` below is only the fallback for a model that declares no custom
+# schema. Every model in this project sets its own (customers, transactions), and
+# macros/generate_schema_name.sql uses that value verbatim, appending '__ci' only
+# on the ci target.
+techflow_warehouse:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SF_ACCOUNT') }}"
+      user: "{{ env_var('SF_USER') }}"
+      password: "{{ env_var('SF_PASSWORD') }}"
+      role: "{{ env_var('SF_ROLE') }}"
+      warehouse: BOOK_WH
+      database: silver_db
+      schema: public
+      threads: 4
+      client_session_keep_alive: false
+    ci:
+      type: snowflake
+      account: "{{ env_var('SF_ACCOUNT') }}"
+      user: "{{ env_var('SF_USER') }}"
+      password: "{{ env_var('SF_PASSWORD') }}"
+      role: "{{ env_var('SF_ROLE') }}"
+      warehouse: BOOK_WH
+      database: silver_db
+      schema: public
+      threads: 4
+      client_session_keep_alive: false

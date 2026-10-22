@@ -1,0 +1,20 @@
+Write a Snowpark UDTF that walks each customer's transactions in
+chronological order and emits a row whenever the most recent N transactions
+exceed an aggregate amount threshold within a rolling time window.
+
+Constraints:
+- Implement the handler as a Python class with __init__, process, and
+  end_partition methods, following snowpark/udtfs/velocity_flagger.py.
+- __init__ initializes a per-partition deque of (timestamp, amount) tuples,
+  the window size in minutes, the count threshold, and the amount threshold.
+- process should evict aged entries first, append the current event, then
+  yield a single output row when both thresholds are tripped.
+- end_partition should be a no-op today, with a docstring noting it is the
+  hook for per-partition summaries.
+- Output schema must use snowflake.snowpark.types: customer_id STRING,
+  transaction_id STRING, transaction_ts TIMESTAMP, window_count INTEGER,
+  window_amount FLOAT, flag_reason STRING.
+- Register the UDTF with is_permanent=True, replace=True,
+  stage_location="@gold_db.public.udf_stage", and name="flag_velocity_bursts".
+- Add a __main__ entry point that builds a session via build_session() and
+  invokes register(session).

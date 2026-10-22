@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.coverage
+.benchmarks/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.snowflake/
+local_testing.db

@@ -1,0 +1,3 @@
+# CLI may write plan/deploy artifacts to either name; never commit them.
+out/
+output/

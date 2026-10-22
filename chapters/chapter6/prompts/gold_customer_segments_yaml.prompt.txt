@@ -1,0 +1,7 @@
+Write the YAML for models/gold/_gold_customer_segments.yml.
+Include:
+- A model description of one paragraph.
+- Column descriptions for every column in gold_customer_segments.sql.
+- A unique test on customer_id.
+- A not_null test on segment.
+- An accepted_values test on segment with the four values.

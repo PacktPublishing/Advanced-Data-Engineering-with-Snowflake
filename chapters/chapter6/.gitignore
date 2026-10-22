@@ -1,0 +1,10 @@
+.venv/
+logs/
+target/
+dbt_packages/
+# dbt deps leaves this behind when a previous run was interrupted.
+package-lock.concurrent-update-lock
+dbt/.user.yml
+.sqlmesh/
+sqlmesh/techflow_sqlmesh/.cache/
+__pycache__/

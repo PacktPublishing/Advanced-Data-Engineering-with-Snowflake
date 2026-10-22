@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.19.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "techflow-orchestration"
+version = "0.1.0"
+description = "Dagster asset graph for the Chapter 11 TechFlow pipeline"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "dagster>=1.12,<2",
+    "dagster-aws>=0.28,<1",
+    "dagster-dbt>=0.28,<1",
+    "dagster-dg-cli>=1.12,<2",
+    "dagster-snowflake>=0.28,<1",
+    "dbt-snowflake>=1.10,<2",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "dagster-webserver>=1.12,<2",
+    "pytest>=8,<10",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/techflow_orchestration"]
+
+[tool.dg]
+directory_type = "project"
+
+[tool.dg.project]
+root_module = "techflow_orchestration"
+defs_module = "techflow_orchestration.defs"
+code_location_target_module = "techflow_orchestration.definitions"
+code_location_name = "techflow-orchestration"

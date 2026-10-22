@@ -1,0 +1,210 @@
+name: TECHFLOW_REVENUE
+description: "TechFlow payments semantic model, revenue owned by finance"
+variables:
+  - name: HIGH_VALUE_THRESHOLD
+    description: Minimum completed amount to count as high-value
+    data_type: "NUMBER(38,0)"
+    default_value: "500"
+tables:
+  - name: CUSTOMERS
+    description: Current attributes for each customer
+    base_table:
+      database: GOLD_DB
+      schema: CUSTOMERS
+      table: DIM_CUSTOMERS_CURRENT
+    primary_key:
+      columns:
+        - CUSTOMER_ID
+    dimensions:
+      - name: CUSTOMER_STATE
+        description: Customer billing state
+        expr: state
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+  - name: MERCHANTS
+    description: One row per merchant with category and city
+    base_table:
+      database: GOLD_DB
+      schema: MERCHANTS
+      table: DIM_MERCHANTS
+    primary_key:
+      columns:
+        - MERCHANT_ID
+    dimensions:
+      - name: MERCHANT_CATEGORY
+        synonyms:
+          - merchant type
+          - vertical
+        description: Merchant industry category
+        expr: merchant_category
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+  - name: REFUNDS
+    description: "One row per refund event, many per payment"
+    base_table:
+      database: GOLD_DB
+      schema: TRANSACTIONS
+      table: FACT_REFUNDS
+    primary_key:
+      columns:
+        - REFUND_ID
+    facts:
+      - name: REFUND_AMOUNT
+        description: "Refund event amount, USD"
+        expr: refund_amount
+        data_type: "NUMBER(12,2)"
+        access_modifier: private_access
+  - name: TRANSACTIONS
+    synonyms:
+      - payments
+      - sales
+    description: "One row per payment attempt, all statuses"
+    base_table:
+      database: GOLD_DB
+      schema: TRANSACTIONS
+      table: FACT_TRANSACTIONS
+    primary_key:
+      columns:
+        - TRANSACTION_ID
+    dimensions:
+      - name: CHANNEL
+        synonyms:
+          - platform
+          - device type
+        description: "Origin of the payment: mobile, web, POS, or API"
+        expr: channel
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+        is_enum: true
+        sample_values:
+          - mobile
+          - web
+          - POS
+          - API
+      - name: STATUS
+        description: Payment lifecycle state
+        expr: status
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+        is_enum: true
+        sample_values:
+          - COMPLETED
+          - REFUNDED
+          - FAILED
+          - PENDING
+      - name: TRANSACTION_MONTH
+        synonyms:
+          - month
+        description: Calendar month of the payment
+        expr: "DATE_TRUNC('month', transaction_ts)"
+        data_type: TIMESTAMP_NTZ(9)
+        access_modifier: public_access
+    facts:
+      - name: GROSS_CAPTURED_AMOUNT
+        description: "Captured amount: completed and refunded payments, USD"
+        expr: "IFF(status IN ('COMPLETED', 'REFUNDED'), amount, 0)"
+        data_type: "NUMBER(12,2)"
+        access_modifier: public_access
+      - name: NET_AMOUNT
+        description: "Captured amount minus refunds, USD"
+        expr: |-
+          IFF(status IN ('COMPLETED', 'REFUNDED'), amount, 0)
+                  - ZEROIFNULL(SUM(refunds.refund_amount))
+        data_type: "NUMBER(25,2)"
+        access_modifier: public_access
+      - name: REFUNDED_AMOUNT
+        description: "Total returned against this payment, USD"
+        expr: ZEROIFNULL(SUM(refunds.refund_amount))
+        data_type: "NUMBER(24,2)"
+        access_modifier: public_access
+    metrics:
+      - name: AVERAGE_TRANSACTION_VALUE
+        synonyms:
+          - average ticket
+          - ATV
+        description: "Mean completed payment amount, USD"
+        expr: "AVG(IFF(status = 'COMPLETED', amount, NULL))"
+        access_modifier: public_access
+      - name: CUSTOMER_COUNT
+        synonyms:
+          - active customers
+        description: Distinct customers with at least one captured payment
+        expr: |-
+          COUNT(DISTINCT IFF(status IN ('COMPLETED', 'REFUNDED'),
+                                   customer_id, NULL))
+        access_modifier: public_access
+      - name: HIGH_VALUE_REVENUE
+        description: "Completed gross revenue at or above the threshold, USD"
+        expr: |-
+          SUM(IFF(status = 'COMPLETED' AND amount >= high_value_threshold,
+                        amount, 0))
+        access_modifier: public_access
+      - name: HIGH_VALUE_REVENUE_SHARE
+        description: High-value share of completed gross revenue
+        expr: |-
+          DIV0(SUM(IFF(status = 'COMPLETED' AND amount >= high_value_threshold,
+                             amount, 0)),
+                     SUM(IFF(status = 'COMPLETED', amount, 0)))
+        access_modifier: public_access
+      - name: REFUND_RATE
+        synonyms:
+          - refund share
+          - return rate
+        description: Refunded amount as a share of gross captured amount
+        expr: "DIV0(SUM(refunded_amount), SUM(gross_captured_amount))"
+        access_modifier: public_access
+      - name: REVENUE_RUNNING_TOTAL
+        synonyms:
+          - cumulative revenue
+        description: Running total of net revenue ordered by month
+        expr: |-
+          SUM(total_revenue) OVER (
+                  PARTITION BY EXCLUDING transactions.transaction_month
+                  ORDER BY transactions.transaction_month
+                  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        access_modifier: public_access
+      - name: TOTAL_REVENUE
+        synonyms:
+          - revenue
+          - net revenue
+          - sales total
+        description: "Captured payments net of refunds, USD"
+        expr: SUM(net_amount)
+        access_modifier: public_access
+      - name: TRANSACTION_COUNT
+        description: "Number of payment attempts, all statuses"
+        expr: COUNT(transaction_id)
+        access_modifier: public_access
+relationships:
+  - name: REFUND_TO_TXN
+    left_table: REFUNDS
+    right_table: TRANSACTIONS
+    relationship_columns:
+      - left_column: TRANSACTION_ID
+        right_column: TRANSACTION_ID
+  - name: TXN_TO_CUSTOMER
+    left_table: TRANSACTIONS
+    right_table: CUSTOMERS
+    relationship_columns:
+      - left_column: CUSTOMER_ID
+        right_column: CUSTOMER_ID
+  - name: TXN_TO_MERCHANT
+    left_table: TRANSACTIONS
+    right_table: MERCHANTS
+    relationship_columns:
+      - left_column: MERCHANT_ID
+        right_column: MERCHANT_ID
+module_custom_instructions:
+  sql_generation: "Revenue always means captured payments net of refunds, in USD. When a question does not specify a time range, default to the last 12 complete months."
+verified_queries:
+  - name: MONTHLY_TOTAL_REVENUE
+    sql: |-
+      SELECT * FROM SEMANTIC_VIEW(
+                   gold_db.semantic.techflow_revenue
+                   METRICS total_revenue
+                   DIMENSIONS transaction_month
+                   WHERE transaction_month >=
+                     DATEADD('month', -12, DATE_TRUNC('month', CURRENT_DATE()))
+                     AND transaction_month < DATE_TRUNC('month', CURRENT_DATE())
+                 ) ORDER BY transaction_month
+    question: What was total revenue by month?

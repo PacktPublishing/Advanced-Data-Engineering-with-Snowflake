@@ -1,0 +1,10 @@
+{
+  "request_id": "REQ-001",
+  "team": "PAYMENTS",
+  "cost_center": "CC_PAYMENTS",
+  "environment": "SANDBOX",
+  "data_classification": "SYNTHETIC",
+  "warehouse_size": "XSMALL",
+  "monthly_credit_limit": 20,
+  "expires_on": "2026-10-14"
+}

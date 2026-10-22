@@ -1,0 +1,30 @@
+manifest_version: 2
+type: DCM_PROJECT
+default_target: DCM_DEV
+
+# Both targets point at the same account. Isolation comes from env_suffix
+# (_DEV vs empty), not from separate accounts. Teams with separate accounts
+# change only each target's account_identifier and drop the suffix.
+# project_owner names the role that owns the project object; it does not
+# switch the session role of whoever runs the command.
+targets:
+  DCM_DEV:
+    account_identifier: TECHFLOW-MAIN
+    project_name: OPS_DB.DCM.TECHFLOW_PIPELINE_DEV
+    project_owner: DCM_DEVELOPER
+    templating_config: DEV
+  DCM_PROD:
+    account_identifier: TECHFLOW-MAIN
+    project_name: OPS_DB.DCM.TECHFLOW_PIPELINE_PROD
+    project_owner: DCM_PROD_DEPLOYER
+    templating_config: PROD
+
+templating:
+  defaults:
+    env_suffix: ""
+    wh_name: "BOOK_WH"
+  configurations:
+    DEV:
+      env_suffix: "_DEV"
+    PROD:
+      env_suffix: ""

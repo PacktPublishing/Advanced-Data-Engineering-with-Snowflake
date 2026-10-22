@@ -1,0 +1,26 @@
+# Chapter 8: Migrating Spark Workloads to Snowpark
+# Use Python 3.11; Python 3.12 is an alternative. Python 3.10 reaches end of
+# life in October 2026. These Snowpark packages do not support Python 3.13.
+
+# The [jdk] extra bundles the Java runtime the local translation server needs
+# and pulls the matching pyspark 3.5.x client as a dependency.
+snowpark-connect[jdk]
+
+# Batch path: packages a script and runs it in cluster mode on an SPCS pool.
+snowpark-submit
+
+# The chapter pins the Spark 3.5 line. snowpark-connect already depends on a
+# compatible client; this constraint keeps an ad hoc pip install from floating
+# past it.
+pyspark>=3.5,<3.6
+
+# Optional: PostgreSQL JDBC driver staging for the Section 4.3 example is done
+# outside pip (the driver JAR goes on the translation layer classpath).
+
+# Python 3.12 removed stdlib `distutils`, which the pyspark 3.5.x client uses.
+# Retain the chapter's existing compatibility pin on that interpreter only;
+# Python 3.11 supplies distutils and does not need this pin.
+setuptools<74; python_version == "3.12"
+
+# The Snowflake CLI (snow) 3.x is installed separately (pipx install snowflake-cli)
+# and is not a pip dependency of this project.

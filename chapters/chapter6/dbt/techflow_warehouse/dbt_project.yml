@@ -1,0 +1,28 @@
+name: techflow_warehouse
+version: '1.0.0'
+config-version: 2
+
+profile: techflow_warehouse
+
+model-paths: ["models"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+
+target-path: target
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  techflow_warehouse:
+    silver:
+      +database: silver_db
+      +schema: customers
+      +materialized: view
+    gold:
+      +database: gold_db
+      +schema: customers
+      +materialized: view

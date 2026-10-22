@@ -1,0 +1,8 @@
+aws_region     = "ca-central-1"
+aws_account_id = "123456789012"
+# S3 names are global. If techflow-ml is taken, set e.g. "techflow-ml-youraccount".
+# bucket_name = "techflow-ml"
+
+# Phase 2 — fill after DESC STORAGE INTEGRATION techflow_ml_integration
+# snowflake_stage_iam_arn = "arn:aws:iam::..."
+# snowflake_stage_ext_id  = "..."

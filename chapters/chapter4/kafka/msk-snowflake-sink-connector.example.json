@@ -1,0 +1,26 @@
+{
+  "name": "techflow-fraud-streaming-msk",
+  "config": {
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "tasks.max": "4",
+    "topics": "fraud-events",
+    "snowflake.url.name": "<REPLACE: your-account>.snowflakecomputing.com",
+    "snowflake.user.name": "<REPLACE: streaming_ingest_user>",
+    "snowflake.private.key": "${file:/secrets/snowflake_streaming_key.p8}",
+    "snowflake.database.name": "RAW_DB",
+    "snowflake.schema.name": "STREAMING",
+    "snowflake.role.name": "STREAMING_INGEST_ROLE",
+    "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
+    "snowflake.enable.schematization": "true",
+    "buffer.count.records": "10000",
+    "buffer.flush.time": "10",
+    "buffer.size.bytes": "5000000",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
+    "bootstrap.servers": "<REPLACE: paste msk_bootstrap_brokers_sasl_iam from terraform output>",
+    "consumer.override.security.protocol": "SASL_SSL",
+    "consumer.override.sasl.mechanism": "AWS_MSK_IAM",
+    "consumer.override.sasl.jaas.config": "software.amazon.msk.auth.iam.IAMLoginModule required;",
+    "consumer.override.sasl.client.callback.handler.class": "software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+  }
+}

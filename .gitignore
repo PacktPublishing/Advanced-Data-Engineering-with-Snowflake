@@ -1,0 +1,115 @@
+# =============================================================================
+# Research (private drafts / competitive analysis)
+# =============================================================================
+research/
+
+# =============================================================================
+# OS
+# =============================================================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# IDEs / Editors
+# =============================================================================
+.idea/
+.vscode/
+*.code-workspace
+.cursor/
+
+# =============================================================================
+# Terraform
+# =============================================================================
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# =============================================================================
+# AWS
+# =============================================================================
+*.pem
+*.key
+credentials
+credentials.json
+AWSCLIV2.pkg
+
+# =============================================================================
+# Snowflake
+# =============================================================================
+snowsql_config
+*.snowsql
+
+# =============================================================================
+# Python (future chapters)
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# =============================================================================
+# Node (future chapters)
+# =============================================================================
+node_modules/
+.npm/
+package-lock.json
+
+# =============================================================================
+# Logs
+# =============================================================================
+*.log
+logs/
+
+# =============================================================================
+# Archives / binaries
+# =============================================================================
+*.pkg
+*.zip
+*.tar.gz
+*.dmg
+*.exe
+*.jar
+
+# =============================================================================
+# Book manuscripts (canonical drafts live outside this repo, e.g. Google Drive)
+# =============================================================================
+chapters/chapter2/*.docx
+chapters/chapter2/Chapter_02*.md
+chapters/chapter3/*.docx
+chapters/chapter3/Chapter_03*.md
+chapters/chapter4/*.docx
+chapters/chapter4/Chapter_04*.md
+rsa_key_streaming.p8
+rsa_key_streaming.pub
+setup/terraform/aws/tfplan.msk*
+chapters/chapter6/article_ai_writing_review.md
+chapters/chapter6/dbt/techflow_warehouse/target/
+chapters/chapter6/sqlmesh/techflow_sqlmesh/.cache/
+chapters/chapter8/CHAPTER8_HANDOFF.md
+chapters/chapter8/CHAPTER8_REVIEW_SUGGESTIONS.md
+chapters/BACKLOG.md
+chapters/chapter11/CODE_BLOCK_MAP.md
+
+# Local working copies with real account values (sanitized versions are tracked)
+*.local.sql

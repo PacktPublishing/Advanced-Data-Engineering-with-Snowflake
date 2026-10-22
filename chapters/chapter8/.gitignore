@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+.snowflake/
+# Staged JDBC driver JARs (Section 4.3) and local Spark parity outputs
+jars/
+spark_baseline_output/
+*.crc
+_SUCCESS

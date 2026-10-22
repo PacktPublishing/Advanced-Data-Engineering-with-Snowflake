@@ -1,0 +1,78 @@
+# Chapter 10, Section 4.2: CI template; not active in this location.
+# Copy to your repository root .github/workflows/ and complete README setup.
+# Preserve the monorepo paths, or update every working-directory/script path.
+# Prerequisites: Chapter 9, role grants, existing DCM projects, remote state,
+# committed provider lock file, and GitHub secrets. No schemachange step.
+# Selected tools: Terraform 1.14.4, Snowflake CLI 3.26.0, Python 3.12.
+# Replace TECHFLOW-MAIN / TECHFLOW / MAIN and service-user names for your account.
+# Terraform uses TERRAFORM_DEPLOYER from its provider variable; snow uses the
+# job's DCM role. Grant each service user both roles needed for its job.
+name: snowflake-plan
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    # Fork PRs do not receive credentials; review them before testing internally.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      SNOWFLAKE_ACCOUNT: TECHFLOW-MAIN
+      SNOWFLAKE_ORGANIZATION_NAME: TECHFLOW
+      SNOWFLAKE_ACCOUNT_NAME: MAIN
+      SNOWFLAKE_USER: CI_SERVICE_USER
+      SNOWFLAKE_ROLE: DCM_DEVELOPER
+      SNOWFLAKE_AUTHENTICATOR: SNOWFLAKE_JWT
+      SNOWFLAKE_WAREHOUSE: BOOK_WH
+      SNOWFLAKE_PRIVATE_KEY_FILE: ${{ runner.temp }}/key.p8
+      SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_CI_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: One-object-one-owner check
+        run: bash chapters/chapter10/.cortex/skills/object-ownership/check_ownership.sh
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.4"
+          terraform_wrapper: false
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Write private key
+        run: |
+          printf '%s\n' "$SNOWFLAKE_PRIVATE_KEY" > "$SNOWFLAKE_PRIVATE_KEY_FILE"
+          chmod 600 "$SNOWFLAKE_PRIVATE_KEY_FILE"
+      - name: Install Snowflake CLI
+        run: python -m pip install "snowflake-cli==3.26.0"
+      - name: Terraform plan
+        working-directory: chapters/chapter10/infra
+        run: |
+          terraform init -input=false -lockfile=readonly
+          terraform plan -input=false -out=release.tfplan
+          terraform show -no-color release.tfplan > terraform-plan.txt
+      - name: DCM plan (DEV)
+        working-directory: chapters/chapter10/techflow_pipeline
+        run: snow dcm plan --target DCM_DEV --temporary-connection | tee dcm-plan.txt
+      - name: Publish review plans
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-plans
+          path: |
+            chapters/chapter10/infra/terraform-plan.txt
+            chapters/chapter10/techflow_pipeline/dcm-plan.txt
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove temporary key
+        if: always()
+        run: rm -f "$SNOWFLAKE_PRIVATE_KEY_FILE"

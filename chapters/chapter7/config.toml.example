@@ -1,0 +1,24 @@
+# Sample ~/.snowflake/config.toml entry the chapter examples expect.
+# Copy or merge into ~/.snowflake/config.toml and `chmod 600` afterwards.
+# The Snowpark `Session.builder.config("connection_name", "default")` calls
+# resolve to the [connections.default] block below.
+
+default_connection_name = "default"
+
+[connections.default]
+account = "<your-account-locator>"   # e.g. xy12345.us-east-1
+user = "<your-user>"
+role = "TRANSFORMER_ROLE"
+warehouse = "BOOK_WH"
+database = "GOLD_DB"
+schema = "TRANSACTIONS"
+
+# Pick ONE auth path. Password auth uses the SNOWFLAKE_PASSWORD env var so
+# the file itself does not store secrets.
+authenticator = "snowflake"
+password = "$SNOWFLAKE_PASSWORD"
+
+# Key-pair auth (preferred for CI). Comment out `authenticator` and `password`
+# above and uncomment the two lines below to switch.
+# authenticator = "SNOWFLAKE_JWT"
+# private_key_file = "~/.snowflake/rsa_key.p8"

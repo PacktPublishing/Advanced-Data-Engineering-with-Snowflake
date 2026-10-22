@@ -1,0 +1,4 @@
+product,owner_domain,interface,version,listing_or_share,dependencies,audience,last_consumer_check,query_id
+merchant_daily,Payments,PRODUCT_DB.PRODUCT.MERCHANT_DAILY_V1,v1,MERCHANT_SHARE,SOURCE_DB,merchant_101_partner,NOT_RUN,NOT_RUN
+merchant_daily,Payments,PRODUCT_DB.PRODUCT.MERCHANT_DAILY_V1,v1,MERCHANT_PARTNER_LISTING,SOURCE_DB,merchant_101_partner,NOT_RUN,NOT_RUN
+merchant_daily,Payments,PRODUCT_DB.PRODUCT.MERCHANT_DAILY_V1,v1,MERCHANT_INTERNAL_LISTING,SOURCE_DB,internal_consumer_account,NOT_RUN,NOT_RUN

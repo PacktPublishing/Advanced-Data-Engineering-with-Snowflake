@@ -1,0 +1,48 @@
+-- Chapter 18: delegated workspace (section "Creating the delegated workspace").
+-- Run the setup script first. Independent of the later worksheets.
+-- Prerequisites: sandbox account; setup completed without errors.
+-- Validation: official Snowflake docs checked October 2026; SQL run live October 2026
+-- (builder and reader statements merged into one block on October 14, same statements).
+-- Placeholders: none.
+-- Roles: PAYMENTS_ADMIN owns PAYMENTS_DB and makes every grant inside it;
+-- PAYMENTS_BUILDER creates tables; PAYMENTS_READER reads through a database role.
+-- The PUBLISHED schema gets its own database role in the denials worksheet.
+-- Stop on every error.
+
+-- BLOCK: team workspace (run as the team administrator)
+USE ROLE PAYMENTS_ADMIN;
+USE SECONDARY ROLES NONE;
+CREATE SCHEMA PAYMENTS_DB.WORK WITH MANAGED ACCESS;
+CREATE SCHEMA PAYMENTS_DB.PUBLISHED WITH MANAGED ACCESS;
+GRANT USAGE ON DATABASE PAYMENTS_DB TO ROLE PAYMENTS_BUILDER;
+GRANT USAGE ON SCHEMA PAYMENTS_DB.WORK TO ROLE PAYMENTS_BUILDER;
+GRANT CREATE TABLE ON SCHEMA PAYMENTS_DB.WORK TO ROLE PAYMENTS_BUILDER;
+CREATE DATABASE ROLE PAYMENTS_DB.WORK_READER;
+GRANT USAGE ON DATABASE PAYMENTS_DB
+  TO DATABASE ROLE PAYMENTS_DB.WORK_READER;
+GRANT USAGE ON SCHEMA PAYMENTS_DB.WORK
+  TO DATABASE ROLE PAYMENTS_DB.WORK_READER;
+GRANT SELECT ON ALL TABLES IN SCHEMA PAYMENTS_DB.WORK
+  TO DATABASE ROLE PAYMENTS_DB.WORK_READER;
+GRANT SELECT ON FUTURE TABLES IN SCHEMA PAYMENTS_DB.WORK
+  TO DATABASE ROLE PAYMENTS_DB.WORK_READER;
+GRANT DATABASE ROLE PAYMENTS_DB.WORK_READER TO ROLE PAYMENTS_READER;
+SHOW SCHEMAS IN DATABASE PAYMENTS_DB;
+
+-- BLOCK: builder creates, reader reads
+USE ROLE PAYMENTS_BUILDER;
+USE SECONDARY ROLES NONE;
+USE WAREHOUSE PAYMENTS_WH;
+CREATE TABLE PAYMENTS_DB.WORK.DAILY_BATCH (
+  batch_id INTEGER,
+  settled_usd NUMBER(12,2)
+);
+INSERT INTO PAYMENTS_DB.WORK.DAILY_BATCH
+VALUES (1, 100.00), (2, 200.00);
+USE ROLE PAYMENTS_READER;
+USE SECONDARY ROLES NONE;
+USE WAREHOUSE PAYMENTS_WH;
+SELECT COUNT(*) AS batches, SUM(settled_usd) AS settled_usd
+FROM PAYMENTS_DB.WORK.DAILY_BATCH;
+-- EXPECT: BATCHES 2 and SETTLED_USD 300.00, read through the database role's
+-- future grant. A second run fails at CREATE TABLE; stop there.

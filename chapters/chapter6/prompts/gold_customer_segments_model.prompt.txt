@@ -1,0 +1,8 @@
+Write a dbt model named gold_customer_segments that classifies customers from
+gold_customer_value into four segments based on lifetime_revenue:
+- 'platinum' for revenue >= 50000
+- 'gold' for revenue between 10000 and 49999
+- 'silver' for revenue between 1000 and 9999
+- 'bronze' for revenue below 1000
+Materialize as a materialized view. Include a segment_assigned_at timestamp column.
+Reference gold_customer_value via ref().

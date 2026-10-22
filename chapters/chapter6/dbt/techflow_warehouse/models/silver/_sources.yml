@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: raw_crm
+    database: raw_db
+    schema: crm
+    tables:
+      - name: customer
+        # dbt moved freshness under `config` in 1.9 and loaded_at_field in
+        # 1.10. The old top-level form still parses but emits a deprecation
+        # warning on the pinned version.
+        config:
+          loaded_at_field: updated_at
+          freshness:
+            warn_after: {count: 6, period: hour}
+            error_after: {count: 24, period: hour}

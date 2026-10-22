@@ -1,0 +1,24 @@
+-- Chapter 18: opt-in teardown for the core lab only, after all sections.
+-- Prerequisites: inspect ownership, dependencies and data before uncommenting.
+-- Validation: docs checked October 2026; SQL run live October 2026. Placeholders: none.
+-- Roles: SYSADMIN drops objects (it inherits PAYMENTS_ADMIN, which owns PAYMENTS_DB,
+-- its database roles and the DAILY_SETTLEMENT view);
+-- USERADMIN drops roles. Dropping CONTROL_DB also drops PAYMENTS_BUDGET and the tag.
+-- All mutations remain commented to prevent accidental batch deletion.
+-- A generated self-service plan has its OWN cleanup.sql, not covered here.
+-- USE ROLE SYSADMIN;
+-- DROP WAREHOUSE IF EXISTS PAYMENTS_WH;
+-- DROP WAREHOUSE IF EXISTS RISK_WH;
+-- DROP WAREHOUSE IF EXISTS ADMIN_WH;
+-- DROP WAREHOUSE IF EXISTS PAYMENTS_SCRATCH_WH; -- exists only if the denial test failed
+-- DROP DATABASE IF EXISTS PAYMENTS_DB;
+-- DROP DATABASE IF EXISTS RISK_DB;
+-- DROP DATABASE IF EXISTS CONTROL_DB;
+-- USE ROLE USERADMIN;
+-- DROP ROLE IF EXISTS PAYMENTS_BUILDER;
+-- DROP ROLE IF EXISTS PAYMENTS_READER;
+-- DROP ROLE IF EXISTS PAYMENTS_ADMIN;
+-- DROP ROLE IF EXISTS RISK_READER;
+-- DROP ROLE IF EXISTS COST_READER;
+-- DROP ROLE IF EXISTS COST_ADMIN;
+-- Review SHOW results with an administrator to confirm the listed objects are absent.

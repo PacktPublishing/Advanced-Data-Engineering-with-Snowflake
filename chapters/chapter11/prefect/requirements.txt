@@ -1,0 +1,7 @@
+# Chapter 11 targets Prefect 3 and the current Prefect Snowflake integration.
+prefect>=3.6.22,<4.0
+prefect-snowflake>=0.28.8,<0.29
+prefect-dbt>=0.7,<0.8
+dbt-snowflake>=1.10,<2.0
+boto3>=1.34
+httpx>=0.27

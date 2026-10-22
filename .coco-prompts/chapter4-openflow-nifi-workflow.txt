@@ -1,0 +1,125 @@
+You are building the Chapter 4 OpenFlow **Alpha Vantage FX_DAILY** lab in the connected Snowflake account (connection book). OpenFlow **gen 2**: the deployment `techflow_ingest` and the runtime `OPENFLOW_DB.CONTROL.PARTNER_API_RUNTIME` are SQL objects (blocks 3-4 of chapters/chapter4/chapter4_openflow_setup.sql). Runtime is already **active**.
+
+## A) SQL (run first if anything is missing)
+Use ROLE ACCOUNTADMIN, warehouse BOOK_WH, database RAW_DB, schema STREAMING.
+
+1. CREATE OR REPLACE TABLE RAW_DB.STREAMING.fx_daily_rates (
+     trade_date DATE, from_currency STRING, to_currency STRING,
+     open_rate NUMBER(12,6), high_rate NUMBER(12,6),
+     low_rate NUMBER(12,6), close_rate NUMBER(12,6),
+     _loaded_at TIMESTAMP_NTZ
+   );
+   IMPORTANT: No DEFAULT values on any column — PutSnowpipeStreaming does NOT
+   support columns with DEFAULT, AUTOINCREMENT, IDENTITY, GEO, or collation.
+
+2. NETWORK RULE for egress to **www.alphavantage.co:443** (database-scoped, MODE=EGRESS, TYPE=HOST_PORT). Name: RAW_DB.STREAMING.alphavantage_network_rule.
+
+3. Keep existing **partner_api_network_rule** (api.partner-network.com:443) for the TechFlow narrative.
+
+4. EXTERNAL ACCESS INTEGRATION **partner_api_access** must list BOTH rules in ALLOWED_NETWORK_RULES = (alphavantage_network_rule, partner_api_network_rule). ENABLED=TRUE. Use CREATE ... IF NOT EXISTS or ALTER ... SET ALLOWED_NETWORK_RULES — NEVER CREATE OR REPLACE on the rules or the integration (it silently detaches them from the runtime).
+
+5. SECRET RAW_DB.STREAMING.partner_api_key TYPE=GENERIC_STRING SECRET_STRING='<your_alphavantage_api_key>'. Free tier: sign up at alphavantage.co/support (25 requests/day).
+
+6. Role **openflow_runtime_role** (lowercase ok): USAGE+OPERATE BOOK_WH; USAGE RAW_DB + RAW_DB.STREAMING; INSERT,SELECT on fx_daily_rates; USAGE ON INTEGRATION partner_api_access; USAGE on OPENFLOW_DB + OPENFLOW_DB.CONTROL.
+   GRANT ROLE openflow_runtime_role TO ROLE OPENFLOW_ADMIN. It is the runtime's EXECUTE_AS_ROLE.
+
+7. SHOW OPENFLOW DEPLOYMENTS; SHOW OPENFLOW RUNTIMES IN SCHEMA OPENFLOW_DB.CONTROL; (paste one row summary each; status should be ACTIVE)
+
+8. SELECT COUNT(*) FROM RAW_DB.STREAMING.fx_daily_rates;
+
+## B) NiFi canvas (Snowsight — you cannot do this in SQL; give the reader exact steps)
+The Alpha Vantage FX_DAILY API returns a nested JSON object with two top-level keys:
+- "Meta Data" containing "2. From Symbol" and "3. To Symbol" (currency codes)
+- "Time Series FX (Daily)" containing date-keyed objects with "1. open", "2. high", "3. low", "4. close"
+
+Target table columns: trade_date, from_currency, to_currency, open_rate, high_rate, low_rate, close_rate.
+
+Build a **4-processor flow** — order matters (Jolt BEFORE Split):
+
+1. **InvokeHTTP** — "InvokeHTTP - FX Daily Rates"
+   - HTTP Method: GET
+   - Remote URL: https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=USD&to_symbol=EUR&apikey=<YOUR_KEY>
+   - Timer-driven, 300 sec (free tier: 25 req/day). Auto-terminate Original, Retry, No Retry.
+   - Wire Response → JoltTransformJSON.
+
+2. **JoltTransformJSON** — "JoltTransformJSON - Flatten FX Rates"
+   - Jolt Transformation DSL: **jolt-transform-chain** (NOT the display name "Chain" — use the internal value).
+   - Jolt Specification (3-operation chain):
+     [
+       {
+         "operation": "shift",
+         "spec": {
+           "Time Series FX (Daily)": {
+             "*": {
+               "$": "rates[#2].trade_date",
+               "1. open": "rates[#2].open_rate",
+               "2. high": "rates[#2].high_rate",
+               "3. low": "rates[#2].low_rate",
+               "4. close": "rates[#2].close_rate"
+             }
+           },
+           "Meta Data": {
+             "2. From Symbol": "from_currency",
+             "3. To Symbol": "to_currency"
+           }
+         }
+       },
+       {
+         "operation": "modify-default",
+         "spec": {
+           "from_currency": "USD",
+           "to_currency": "EUR",
+           "rates": {
+             "*": {
+               "from_currency": "=(@(3,from_currency))",
+               "to_currency": "=(@(3,to_currency))"
+             }
+           }
+         }
+       },
+       {
+         "operation": "remove",
+         "spec": { "from_currency": "", "to_currency": "" }
+       }
+     ]
+   - WHY 3 operations: shift restructures nested dates into flat array + extracts currency codes;
+     modify-default fans currency codes into each rate element (critical — SplitJson loses parent fields);
+     remove strips top-level currency fields that are now redundant.
+   - Wire to SplitJson.
+
+3. **SplitJson** — "SplitJson - Individual Rates"
+   - JsonPath Expression: $.rates[*]
+   - Each element becomes one FlowFile (~100 daily OHLC records per response).
+   - NOTE: Jolt must run BEFORE Split because individual rate records need the currency codes
+     from the sibling Meta Data object. Splitting first loses that context.
+   - Wire split → PutSnowpipeStreaming.
+
+4. **PutSnowpipeStreaming** — "PutSnowpipeStreaming - FX_DAILY_RATES"
+   - Processor type: com.snowflake.openflow.runtime.processors.snowpipe.PutSnowpipeStreaming
+     (from runtime-snowpipe-processors-nar; NOT "PutSnowpipeStreaming2")
+   - Authentication Strategy: SNOWFLAKE_SESSION_TOKEN (automatic in SPCS/OpenFlow)
+   - Database: RAW_DB, Schema: STREAMING, Table: FX_DAILY_RATES
+   - Role: OPENFLOW_RUNTIME_ROLE
+   - Record Reader: JsonTreeReader (add and enable this controller service)
+   - Connection Strategy: STANDARD
+   - Delivery Guarantee: At least once
+   - Client Lag: 1 sec
+   - Wire failure → Funnel or LogAttribute.
+
+5. Start the flow and confirm rows:
+   SELECT COUNT(*) AS rows_loaded, MIN(trade_date), MAX(trade_date)
+   FROM RAW_DB.STREAMING.fx_daily_rates;
+
+## Troubleshooting (common errors from field testing)
+- "UnknownHostException: www.alphavantage.co" → EAI not attached to runtime. Run ALTER OPENFLOW RUNTIME OPENFLOW_DB.CONTROL.PARTNER_API_RUNTIME ADD EXTERNAL_ACCESS_INTEGRATIONS = (partner_api_access); (happens if the integration was re-created with CREATE OR REPLACE).
+- "The role name provided in the request is invalid" → OPENFLOW_RUNTIME_ROLE not in runtime user's hierarchy. Fix: GRANT ROLE OPENFLOW_RUNTIME_ROLE TO ROLE OPENFLOW_ADMIN.
+- "Snowpipe Streaming does not support columns of type AUTOINCREMENT..." → Table has a DEFAULT value. Recreate table without DEFAULT on any column. Re-grant INSERT/SELECT.
+- JoltTransformJSON INVALID "validated against 'Chain' is invalid" → Use internal value jolt-transform-chain, not display name "Chain".
+- Currency codes NULL after loading → Jolt spec must fan currencies into each rate element using modify-default with =(@(3,from_currency)) BEFORE SplitJson runs. Check processor order.
+
+## Output format
+- Bullets: SQL done / already OK / failed with error text.
+- Then numbered **UI clicks** (Openflow UI » Runtimes tab » PARTNER_API_RUNTIME » canvas) with processor names **as shown in Snowsight**.
+- End with verification query result row count.
+
+Do not use CREATE PIPELINE or any invalid OpenFlow SQL.

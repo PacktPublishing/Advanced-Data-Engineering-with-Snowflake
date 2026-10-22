@@ -1,0 +1,15 @@
+gateways:
+  snowflake:
+    connection:
+      type: snowflake
+      account: '{{ env_var("SF_ACCOUNT") }}'
+      user: '{{ env_var("SF_USER") }}'
+      password: '{{ env_var("SF_PASSWORD") }}'
+      role: '{{ env_var("SF_ROLE") }}'
+      warehouse: BOOK_WH
+      database: SILVER_DB
+
+default_gateway: snowflake
+model_defaults:
+  dialect: snowflake
+  start: '2025-01-01'

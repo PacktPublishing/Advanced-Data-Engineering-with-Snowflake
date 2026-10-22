@@ -1,0 +1,32 @@
+# Sample ~/.snowflake/config.toml entry the chapter examples expect.
+# Copy or merge into ~/.snowflake/config.toml and `chmod 600` afterwards.
+#
+# Snowpark Connect and Snowpark Submit read the same configuration files as the
+# Snowflake CLI. The interactive demos resolve the [connections.spark-connect]
+# block below, and `snowpark-submit --snowflake-connection-name spark-connect`
+# uses the same profile.
+
+default_connection_name = "spark-connect"
+
+[connections.spark-connect]
+account = "<your-account-locator>"   # e.g. xy12345.us-east-1
+user = "<your-user>"
+role = "TECHFLOW_ETL"
+warehouse = "BOOK_WH"
+database = "GOLD_DB"
+schema = "TRANSACTIONS"
+
+# Pick ONE auth path. Password auth uses the SNOWFLAKE_PASSWORD env var so the
+# file itself does not store secrets.
+authenticator = "snowflake"
+password = "$SNOWFLAKE_PASSWORD"
+
+# Key-pair auth (preferred for CI and for scheduled Snowpark Submit runs).
+# Comment out `authenticator` and `password` above and uncomment below.
+# authenticator = "SNOWFLAKE_JWT"
+# private_key_file = "~/.snowflake/rsa_key.p8"
+
+# The open source pyspark[connect] path uses a PAT instead of this profile:
+#   SparkSession.builder.remote(
+#       "sc://<account>.snowflakecomputing.com:443;token=<PAT>"
+#   ).getOrCreate()

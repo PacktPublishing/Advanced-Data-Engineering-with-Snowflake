@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: silver_customers
+    description: "Cleaned customer records from raw_db.crm.customer with email and state normalized."
+    columns:
+      - name: customer_id
+        description: "Surrogate identifier from the upstream CRM."
+        data_tests:
+          - unique
+          - not_null
+      - name: email
+        description: "Lowercased, trimmed email address."
+        data_tests:
+          - not_null
+      - name: state
+        description: "Two-letter US state or Canadian province/territory code, uppercased."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+                         'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+                         'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+                         'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+                         'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+                         'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE',
+                         'QC', 'SK', 'YT']
+                quote: true

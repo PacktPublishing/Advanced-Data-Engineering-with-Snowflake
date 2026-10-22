@@ -1,0 +1,8 @@
+Here is the spark-submit line from the old scheduler:
+spark-submit --master yarn --deploy-mode cluster --num-executors 6
+  --executor-memory 8g jobs/merchant_rollup.py
+Generate the snowpark-submit command for this job using connection
+spark-connect and compute pool TECHFLOW_SPARK_POOL, and the Airflow
+BashOperator task that runs it with wait-for-completion, following the
+pattern in Section 3 of this chapter. Propose a warehouse size from the
+row counts of the tables this job reads.

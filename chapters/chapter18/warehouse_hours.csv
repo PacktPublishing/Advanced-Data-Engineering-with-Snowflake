@@ -1,0 +1,4 @@
+account_key,warehouse_id,usage_start,used_compute,attributed_compute
+TECHFLOW,101,2026-09-01 00:00:00,12,9
+TECHFLOW,102,2026-09-01 00:00:00,8,6
+TECHFLOW,103,2026-09-01 00:00:00,10,8

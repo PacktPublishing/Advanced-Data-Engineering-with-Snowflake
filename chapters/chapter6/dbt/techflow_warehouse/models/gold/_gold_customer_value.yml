@@ -1,0 +1,84 @@
+version: 2
+
+models:
+  - name: gold_customer_value
+    description: "Per-customer lifetime value snapshot built from cleaned customer records and the transaction fact table."
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: customer_id
+        description: "Customer identifier and incremental merge key."
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_name
+        description: "Customer display name carried through from the silver layer."
+        data_type: varchar
+      - name: state
+        description: "Two-letter US state or Canadian province/territory code, uppercased."
+        data_type: varchar
+      - name: lifetime_revenue
+        description: "Total completed transaction amount associated with the customer."
+        data_type: number(38,2)
+      - name: lifetime_transactions
+        description: "Number of transactions associated with the customer."
+        data_type: number(38,0)
+      - name: last_transaction_ts
+        description: "Most recent transaction timestamp included in the lifetime value snapshot."
+        data_type: timestamp_ntz
+      - name: dbt_loaded_at
+        description: "Timestamp the dbt run materialized this row."
+        data_type: timestamp_ltz
+
+unit_tests:
+  - name: unit_gold_customer_value_lifetime_totals
+    model: gold_customer_value
+    overrides:
+      macros:
+        is_incremental: false
+    given:
+      - input: ref('silver_customers')
+        rows:
+          - {customer_id: 'C1', customer_name: 'Acme', state: 'ON'}
+      - input: source('gold_transactions', 'fact_transactions')
+        rows:
+          - {customer_id: 'C1', transaction_id: 'T1', amount: 100.0,
+             transaction_ts: '2026-01-05 10:00:00'}
+          - {customer_id: 'C1', transaction_id: 'T2', amount: 50.0,
+             transaction_ts: '2026-02-01 09:30:00'}
+    expect:
+      rows:
+        - {customer_id: 'C1', lifetime_revenue: 150.0,
+           lifetime_transactions: 2}
+
+  - name: unit_gold_customer_value_incremental_recomputes_full_history
+    description: >
+      The incremental branch must recompute each changed customer's FULL
+      transaction history, not just the rows newer than the last load. With
+      the naive rows-only filter, lifetime_revenue would resolve to 50.0
+      (T2 only) and this test would fail before the cumulative-measure bug ships.
+    model: gold_customer_value
+    overrides:
+      macros:
+        is_incremental: true
+    given:
+      - input: ref('silver_customers')
+        rows:
+          - {customer_id: 'C1', customer_name: 'Acme', state: 'ON'}
+      - input: source('gold_transactions', 'fact_transactions')
+        rows:
+          - {customer_id: 'C1', transaction_id: 'T1', amount: 100.0,
+             transaction_ts: '2026-01-05 10:00:00'}
+          - {customer_id: 'C1', transaction_id: 'T2', amount: 50.0,
+             transaction_ts: '2026-02-01 09:30:00'}
+      - input: this
+        rows:
+          - {customer_id: 'C1', last_transaction_ts: '2026-01-05 10:00:00'}
+    expect:
+      rows:
+        - {customer_id: 'C1', lifetime_revenue: 150.0,
+           lifetime_transactions: 2}

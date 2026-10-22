@@ -1,0 +1,20 @@
+product: merchant_daily_v1
+owner_domain: Payments
+support_route: '<REPLACE: payments_support_queue>'
+interface: PRODUCT_DB.PRODUCT.MERCHANT_DAILY_V1
+audience: merchant_101_partner
+grain: [merchant_id, settlement_date, currency]
+amount: net_settled_amount
+measure: net_settled_value_excluding_fees
+fixture:
+  synthetic: true
+  dates: ['2026-09-01', '2026-09-02']
+  visible_rows: 2
+  currency: USD
+  total_amount: 250.00
+  scheduled_refresh: false
+proposed_service_contract:
+  previous_day_deadline: '06:00 UTC'
+  correction_window_days: 30
+  implemented_by_fixture: false
+compatibility: preserve_v1_while_consumers_migrate

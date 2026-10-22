@@ -1,0 +1,30 @@
+You are implementing the Chapter 4 book example for OpenFlow REST ingestion (Section 4.2) in the connected Snowflake account.
+
+## Facts (do not contradict)
+- There is NO valid Snowflake SQL: CREATE PIPELINE, ALTER PIPELINE, EXECUTE PIPELINE, SHOW PIPELINES, or INFORMATION_SCHEMA.PIPELINE_HISTORY for OpenFlow. CREATE PIPE is Snowpipe (files only).
+- OpenFlow is **gen 2** (gen 1 deployment creation retired 2026-09-09). Deployments and runtimes are SQL objects: CREATE OPENFLOW DEPLOYMENT techflow_ingest DEPLOYMENT_TYPE = SNOWFLAKE; CREATE OPENFLOW RUNTIME OPENFLOW_DB.CONTROL.partner_api_runtime IN DEPLOYMENT techflow_ingest ... EXECUTE_AS_ROLE = openflow_runtime_role EXTERNAL_ACCESS_INTEGRATIONS = (partner_api_access). Wait with SYSTEM$WAIT_FOR_STABLE_OPENFLOW_DEPLOYMENTS / _RUNTIMES.
+- Custom flows still run on the NiFi canvas: Snowsight » Ingestion » Openflow » Launch Openflow » Runtimes tab » runtime canvas.
+- SQL prepares: target table (NO DEFAULT values — Snowpipe Streaming requirement), database-scoped NETWORK RULE (EGRESS HOST_PORT), EXTERNAL ACCESS INTEGRATION, SECRET, role GRANTs including USAGE ON INTEGRATION, warehouse/table privileges.
+- Monitoring: SHOW OPENFLOW DEPLOYMENTS; SHOW OPENFLOW RUNTIMES IN ACCOUNT. Credits for a Snowflake deployment: SNOWFLAKE.ACCOUNT_USAGE.METERING_HISTORY WHERE SERVICE_TYPE = 'OPENFLOW_COMPUTE_SNOWFLAKE'. OPENFLOW_USAGE_HISTORY covers BYOC only (empty for this lab).
+- EAIs bind to a runtime with the EXTERNAL_ACCESS_INTEGRATIONS parameter (CREATE or ALTER OPENFLOW RUNTIME ... ADD EXTERNAL_ACCESS_INTEGRATIONS). Never CREATE OR REPLACE a network rule or EAI: it silently detaches it from the runtime.
+- SHOW OPENFLOW DATA PLANE INTEGRATIONS / RUNTIME INTEGRATIONS are gen 1 objects. Do not use them for this lab.
+
+## Goal
+1. Ensure ACCOUNTADMIN, BOOK_WH, RAW_DB, RAW_DB.STREAMING exist.
+2. Align with companion script section 4.2: partner_transactions + fx_daily_rates (NO DEFAULT on any column); alphavantage_network_rule + partner_api_network_rule; partner_api_access listing BOTH rules; partner_api_key (Alpha Vantage free tier key); openflow_runtime_role grants + GRANT ROLE openflow_runtime_role TO ROLE OPENFLOW_ADMIN; OPENFLOW_DB.CONTROL; deployment techflow_ingest; runtime OPENFLOW_DB.CONTROL.partner_api_runtime.
+3. If External Access fails, report the exact error. Common: "UnknownHostException" means EAI not attached to runtime (fix with ALTER OPENFLOW RUNTIME ... ADD EXTERNAL_ACCESS_INTEGRATIONS).
+4. Summarize the exact NiFi canvas (4 processors, order matters):
+   InvokeHTTP (GET Alpha Vantage FX_DAILY) → JoltTransformJSON (3-op chain: shift+modify-default+remove) → SplitJson `$.rates[*]` → PutSnowpipeStreaming (SNOWFLAKE_SESSION_TOKEN auth, OPENFLOW_RUNTIME_ROLE).
+   Jolt runs BEFORE Split because currency codes live in a sibling "Meta Data" object; splitting first loses that context.
+   PutSnowpipeStreaming uses SNOWFLAKE_SESSION_TOKEN auth (automatic in SPCS) — no JDBC pool needed.
+   Jolt DSL internal value is "jolt-transform-chain" NOT the display name "Chain".
+5. Run read-only verification queries (SHOW OPENFLOW DEPLOYMENTS, SHOW OPENFLOW RUNTIMES, METERING_HISTORY for OPENFLOW_COMPUTE_SNOWFLAKE, row count on fx_daily_rates).
+6. End with checklist: succeeded / failed / what reader does in UI only.
+
+## Troubleshooting reference
+- "The role name provided in the request is invalid" → GRANT ROLE OPENFLOW_RUNTIME_ROLE TO ROLE OPENFLOW_ADMIN
+- "Snowpipe Streaming does not support columns of type AUTOINCREMENT..." → Table has DEFAULT. Recreate without DEFAULT.
+- JoltTransformJSON INVALID → Use internal value jolt-transform-chain, not "Chain".
+- Currency codes NULL → Jolt modify-default with =(@(3,from_currency)) must run before SplitJson.
+
+Execute SQL via your tools. Be concise.
