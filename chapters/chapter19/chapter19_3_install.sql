@@ -29,8 +29,8 @@ USE WAREHOUSE BI_WH;
 SELECT COUNT(*) AS rows_in_app,
        SUM(approved_amount_usd) AS approved_volume_usd
 FROM ANALYTICS_APP.APP_PUBLIC.DAILY_METRICS;
--- UI verification: Catalog > Apps > ANALYTICS_APP.
--- Choose BI_WH if prompted. M100 must show 375.00 and 62.50%.
+-- UI verification (run live 2026-10-24): Snowsight Apps > ANALYTICS_APP as BI_READER; pick BI_WH in the
+-- warehouse selector (the app starts on your default warehouse). Expect 675.00 and 58.33%, then 375.00 and 62.50% for M100.
 
 -- PRIVATE LISTING TEMPLATE (section 3.3; needs a second account; deliberately commented).
 -- Consumers outside your organization need DISTRIBUTION = EXTERNAL and a passed security review.

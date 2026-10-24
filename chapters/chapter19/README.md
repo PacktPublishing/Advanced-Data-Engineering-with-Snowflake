@@ -31,7 +31,11 @@ notes: Sigma*). Findings from that run, now reflected in the files:
   `DAILY_METRICS` directly, so the agent relies on `BI_READER`'s grant on that view.
 
 The chat client's revised SQL branch and the commented `ACCOUNT_USAGE` query were rerun live
-on 2026-10-24 after the fixes. Not run live: the Native App UI and CoWork.
+on 2026-10-24 after the fixes. The Native App UI and the CoWork section were run in the browser on
+2026-10-24 as the author's own user with BI_READER, not as a separate test user: the app showed
+the expected totals, all four prompts returned the expected figures with no invented cause, the
+artifact refreshed, the user skill was created in chat, and an hourly automation ran (Run now and
+the scheduled run, both delivered by email) before it was paused and deleted.
 
 ## Execution order
 
