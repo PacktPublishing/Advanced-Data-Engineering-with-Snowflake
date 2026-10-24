@@ -1,12 +1,14 @@
 -- Chapter 19: Interactive serving, benchmark data, reconciliation, load results, suspension (sections 2.2, 2.3)
 -- Independent after common setup and the reporting view from chapter19_1_bi.sql.
 -- Prerequisites: supported region; explicit acceptance of the one-hour minimum charge on every resume.
--- Validation: documentation checked October 2026; not executed on a live Snowflake account.
+-- Validation: documentation checked October 2026; every block run live on the author's sandbox account on 2026-10-24,
+-- including the freshness block with its UTC session line and three load runs. The commented ACCOUNT_USAGE query was run live the same day.
 -- Placeholder convention: <REPLACE: description> only for reader-specific values.
 -- Roles: USERADMIN creates roles; SYSADMIN owns lab objects; ACCOUNTADMIN only grants account privileges.
 -- Stop on any error. CREATE statements deliberately fail on existing lab tables/services.
 -- Order: interactive table, benchmark data, warehouse (starts billing), measurement,
--- reconciliation, then chapter19_2_load_test.py, load results, and suspension in one session.
+-- reconciliation, freshness, then three chapter19_2_load_test.py runs (load results after each),
+-- and suspension in one session.
 
 -- INTERACTIVE TABLE BLOCK.
 USE ROLE SYSADMIN;
@@ -55,7 +57,8 @@ LIMIT 3;
 USE ROLE SYSADMIN;
 CREATE INTERACTIVE WAREHOUSE INTERACTIVE_WH
   TABLES (ANALYTICS_DB.SERVING.DAILY_INTERACTIVE,
-          ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS_INTERACTIVE)
+          ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS_INTERACTIVE,
+          ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS_BENCH)
   AUTO_SUSPEND = 86400
   AUTO_RESUME = FALSE
   INITIALLY_SUSPENDED = TRUE;
@@ -94,26 +97,68 @@ SELECT * FROM ANALYTICS_DB.SERVING.DAILY_INTERACTIVE;
 SELECT * FROM ANALYTICS_DB.SERVING.DAILY_INTERACTIVE
 MINUS
 SELECT * FROM ANALYTICS_DB.SERVING.DAILY_METRICS;
--- Inspect scheduling_state. No extra warehouse is required for SHOW.
+-- Inspect last_completed_refresh_state and latest_data_timestamp. SHOW needs no warehouse.
 SHOW INTERACTIVE TABLES LIKE 'DAILY_INTERACTIVE'
   IN SCHEMA ANALYTICS_DB.SERVING;
 
--- Run chapter19_2_load_test.py twice now (see README), then the load results block.
+-- FRESHNESS BLOCK: move one source timestamp forward without changing any total.
+-- Until the next refresh, both MINUS queries above return the M200 September 2 row.
+-- source_updated_at is TIMESTAMP_NTZ in UTC wall time (the setup script sets the session to UTC),
+-- so this session must be UTC too, or a western time zone writes an earlier time.
+USE ROLE SYSADMIN;
+USE WAREHOUSE BUILD_WH;
+ALTER SESSION SET TIMEZONE = 'UTC';
+UPDATE ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS
+  SET source_updated_at = CURRENT_TIMESTAMP()
+  WHERE attempt_id = 12;
+SHOW INTERACTIVE TABLES LIKE 'DAILY_INTERACTIVE'
+  IN SCHEMA ANALYTICS_DB.SERVING;
+-- Rerun the SHOW until latest_data_timestamp passes the update time (within about a minute),
+-- then rerun the reconciliation block and expect zero rows again.
 
--- LOAD RESULTS BLOCK: one row per run label and warehouse.
-USE ROLE BI_READER;
+-- Run chapter19_2_load_test.py three times now (see README), the load results block after each.
+
+-- LOAD RESULTS BLOCK: run right after each load run, as the owner of both warehouses.
+-- The table function returns at most 10,000 rows (RESULT_LIMIT), keeping the most recent, and
+-- applies that limit before WHERE. Eight workers send more than 10,000 measurement queries in
+-- a run, so queries stops at 10,000 and the percentiles describe the latest 10,000 queries.
+-- Use this block for Snowflake-side latency. For exact counts, use the ACCOUNT_USAGE query below.
+USE ROLE SYSADMIN;
 USE WAREHOUSE BI_WH;
 SELECT query_tag, warehouse_name,
        COUNT(*) AS queries,
        COUNT_IF(execution_status <> 'SUCCESS') AS failed,
+       COUNT_IF(total_elapsed_time > 5000) AS over_5s,
        MEDIAN(total_elapsed_time) AS p50_ms,
        PERCENTILE_CONT(0.95) WITHIN GROUP
          (ORDER BY total_elapsed_time) AS p95_ms
 FROM TABLE(ANALYTICS_DB.INFORMATION_SCHEMA.QUERY_HISTORY_BY_USER(
+       USER_NAME => '<REPLACE: test user name>',
+       END_TIME_RANGE_START => DATEADD(minute, -10, CURRENT_TIMESTAMP()),
        RESULT_LIMIT => 10000))
 WHERE query_tag LIKE 'analytics:load:%:measure'
 GROUP BY query_tag, warehouse_name
 ORDER BY query_tag, warehouse_name;
+-- over_5s counts statements that ran longer than five seconds inside Snowflake, the only
+-- fallback candidates: open their query IDs in Query Profile and look for fault_handling_time.
+-- The client's "over 5 s" count is measured on the client and includes network and client stalls.
+
+-- EXACT COUNTS (optional, deliberately commented): ACCOUNT_USAGE has no row limit but lags by up
+-- to 45 minutes and needs a role that can read the SNOWFLAKE database. Run it after the third run.
+-- USE ROLE ACCOUNTADMIN;
+-- USE WAREHOUSE BI_WH;
+-- SELECT query_tag, warehouse_name,
+--        COUNT(*) AS queries,
+--        COUNT_IF(execution_status <> 'SUCCESS') AS failed,
+--        MEDIAN(total_elapsed_time) AS p50_ms,
+--        PERCENTILE_CONT(0.95) WITHIN GROUP
+--          (ORDER BY total_elapsed_time) AS p95_ms
+-- FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+-- WHERE user_name = '<REPLACE: test user name>'
+--   AND query_tag LIKE 'analytics:load:%:measure'
+--   AND start_time >= DATEADD(hour, -3, CURRENT_TIMESTAMP())
+-- GROUP BY query_tag, warehouse_name
+-- ORDER BY query_tag, warehouse_name;
 
 -- SUSPENSION BLOCK: run when measurement is complete, including after an error.
 USE ROLE SYSADMIN;

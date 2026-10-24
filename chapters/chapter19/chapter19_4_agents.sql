@@ -1,7 +1,8 @@
 -- Chapter 19: Semantic view, Cortex Agent, and consumer grants
 -- Independent optional section after common setup; do not run every service by default.
 -- Prerequisites: common setup and chapter19_1_bi.sql (DAILY_METRICS); Cortex availability per CORTEX_ENABLED_CROSS_REGION
--- Validation: documentation checked October 2026; not executed on a live Snowflake account.
+-- Validation: documentation checked October 2026; every block run live on the author's sandbox account on 2026-10-24,
+-- including the latest_source_update metric and tool_not_accessible: reject (HTTP 403 TOOL_NOT_ACCESSIBLE for NO_DATA_READER).
 -- Placeholder convention: <REPLACE: description> only for reader-specific values.
 -- Roles: USERADMIN creates roles; SYSADMIN owns lab objects; ACCOUNTADMIN only grants account privileges.
 -- Stop on any error. CREATE statements deliberately fail on existing lab tables/services.
@@ -30,23 +31,26 @@ CREATE SEMANTIC VIEW
     d.approved_count AS SUM(d.approved_attempts),
     d.approved_volume_usd AS SUM(d.approved_amount_usd),
     d.approval_rate AS SUM(d.approved_attempts)
-      / NULLIF(SUM(d.attempts), 0)
+      / NULLIF(SUM(d.attempts), 0),
+    d.latest_source_update AS MAX(d.source_updated_at)
   )
   COMMENT = 'UTC merchant-day metrics. USD. Approval rate is a fraction.';
 
--- CONSUMER-GRANT BLOCK. Querying a semantic view needs SELECT on the semantic view
--- only, not on the tables and views behind it, so BI_READER keeps merchant-day access.
+-- CONSUMER-GRANT BLOCK. BI_READER already reads DAILY_METRICS (chapter19_1_bi.sql) and is
+-- never granted PAYMENT_ATTEMPTS, so the agent reaches merchant-day totals and nothing below them.
+-- The agent's generated SQL reads DAILY_METRICS columns directly, so it relies on that grant too.
 GRANT SELECT ON SEMANTIC VIEW ANALYTICS_DB.SERVING.PAYMENT_METRICS
   TO ROLE BI_READER;
 
--- SEMANTIC VERIFICATION: expect 12, 7, 675.00, approximately 0.583333.
+-- SEMANTIC VERIFICATION: expect 12, 7, 675.00, approximately 0.583333, and the latest load time.
 USE ROLE BI_READER;
 USE SECONDARY ROLES NONE;
 USE WAREHOUSE BI_WH;
 SELECT * FROM SEMANTIC_VIEW(
   ANALYTICS_DB.SERVING.PAYMENT_METRICS
   METRICS d.attempt_count, d.approved_count,
-          d.approved_volume_usd, d.approval_rate
+          d.approved_volume_usd, d.approval_rate,
+          d.latest_source_update
 );
 
 -- AGENT-DEFINITION BLOCK.
@@ -58,6 +62,8 @@ instructions:
     State the UTC date range, currency, and metric definition.
     Ask for clarification when dates or measures are ambiguous.
     Report missing data instead of inventing a cause.
+orchestration:
+  tool_not_accessible: reject
 tools:
   - tool_spec:
       type: cortex_analyst_text_to_sql

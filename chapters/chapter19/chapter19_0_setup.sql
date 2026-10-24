@@ -1,7 +1,7 @@
 -- Chapter 19: Common setup and synthetic fixture
 -- Run once before any section. Each later script is independent; run only the section you follow.
 -- Prerequisites: USERADMIN and SYSADMIN; inspect the reserved lab names in the README before running.
--- Validation: documentation checked October 2026; not executed on a live Snowflake account.
+-- Validation: documentation checked October 2026; SQL blocks run live on the author's sandbox account on 2026-10-24.
 -- Placeholder convention: <REPLACE: description> only for reader-specific values.
 -- Roles: USERADMIN creates roles; SYSADMIN owns lab objects; ACCOUNTADMIN only grants account privileges.
 -- Stop on any error. CREATE statements deliberately fail on existing lab tables/services.
@@ -62,6 +62,23 @@ GRANT USAGE ON WAREHOUSE BI_WH TO ROLE BI_READER;
 GRANT USAGE ON DATABASE ANALYTICS_DB TO ROLE NO_DATA_READER;
 GRANT USAGE ON SCHEMA ANALYTICS_DB.SERVING TO ROLE NO_DATA_READER;
 GRANT USAGE ON WAREHOUSE BI_WH TO ROLE NO_DATA_READER;
+
+-- TEST USER BLOCK (optional, deliberately commented): the dedicated test user the chapter signs in as.
+-- Skip it if an administrator already gave you a test user that holds both lab roles.
+-- BI_READER as the default role matters for Power BI single sign-on and for CoWork, which open
+-- sessions with the user's default role and warehouse. Key-pair authentication serves the BI
+-- client and the load client; the email address receives the section 5.3 automation.
+-- Run live on the author's sandbox account on 2026-10-24 (user created, key pair accepted).
+-- USE ROLE USERADMIN;
+-- CREATE USER IF NOT EXISTS <REPLACE: test user name>
+--   TYPE = PERSON
+--   EMAIL = '<REPLACE: your email address>'
+--   DEFAULT_ROLE = BI_READER
+--   DEFAULT_WAREHOUSE = BI_WH
+--   DEFAULT_SECONDARY_ROLES = ();
+-- GRANT ROLE BI_READER TO USER <REPLACE: test user name>;
+-- GRANT ROLE NO_DATA_READER TO USER <REPLACE: test user name>;
+-- ALTER USER <REPLACE: test user name> SET RSA_PUBLIC_KEY = '<REPLACE: public key>';
 
 -- FIXTURE VERIFICATION: expect 12, 7, 675.00.
 SELECT COUNT(*) AS attempts,

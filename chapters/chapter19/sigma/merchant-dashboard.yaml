@@ -1,0 +1,155 @@
+name: Chapter 19 Merchant Dashboard
+folderId: "<REPLACE: Sigma folder ID>"
+description: Published merchant page on ANALYTICS_DB.SERVING.DAILY_METRICS. Default date range covers 2026-09-01 and 2026-09-02. No merchant is selected.
+contents:
+  schemaVersion: 1
+  kind: workbook
+  pages:
+    - id: merchant
+      name: Merchant dashboard
+      pageWidth: full
+      backgroundColor: "#F4F6F8"
+  elements:
+    - id: page-title
+      kind: text
+      body: |
+        # Merchant dashboard
+
+        Approved volume, approval rate, and data age for September 1 and 2, 2026. No merchant selected.
+    - id: ctrl-merchant
+      kind: control
+      controlId: MerchantFilter
+      name: Merchant
+      controlType: list
+      mode: include
+      selectionMode: single
+      values: []
+      source:
+        kind: source
+        source:
+          kind: table
+          elementId: daily-metrics
+        columnId: col-merchant
+      filters:
+        - source:
+            kind: table
+            elementId: daily-metrics
+          columnId: col-merchant
+    - id: ctrl-date
+      kind: control
+      controlId: DateFilter
+      name: Event date
+      controlType: date-range
+      mode: between
+      startDate: "2026-09-01"
+      endDate: "2026-09-02"
+      includeNulls: when-no-value-is-selected
+      filters:
+        - source:
+            kind: table
+            elementId: daily-metrics
+          columnId: col-date
+    - id: kpi-volume
+      kind: kpi-chart
+      name: Approved volume
+      source:
+        kind: table
+        elementId: daily-metrics
+      columns:
+        - id: vol-val
+          name: " "
+          formula: Sum([Daily metrics/Approved amount USD])
+          format:
+            kind: number
+            formatString: "$,.2f"
+      value:
+        columnId: vol-val
+        fontSize: 32
+    - id: kpi-rate
+      kind: kpi-chart
+      name: Approval rate
+      source:
+        kind: table
+        elementId: daily-metrics
+      columns:
+        - id: rate-val
+          name: " "
+          formula: Sum([Daily metrics/Approved attempts]) / Sum([Daily metrics/Attempts])
+          format:
+            kind: number
+            formatString: ",.2%"
+      value:
+        columnId: rate-val
+        fontSize: 32
+    - id: kpi-age
+      kind: kpi-chart
+      name: Data age (latest source update, UTC)
+      source:
+        kind: table
+        elementId: daily-metrics
+      columns:
+        - id: age-val
+          name: " "
+          formula: Max([Daily metrics/Source Updated At])
+          format:
+            kind: datetime
+            formatString: "%Y-%m-%d %H:%M:%S"
+      value:
+        columnId: age-val
+        fontSize: 32
+    - id: daily-metrics
+      kind: table
+      name: Daily metrics
+      source:
+        kind: warehouse-table
+        connectionId: "<REPLACE: Sigma connection ID>"
+        path: [ANALYTICS_DB, SERVING, DAILY_METRICS]
+      columns:
+        - id: col-date
+          name: Event date
+          formula: "[DAILY_METRICS/EVENT_DATE]"
+          format:
+            kind: datetime
+            formatString: "%Y-%m-%d"
+        - id: col-merchant
+          name: Merchant
+          formula: "[DAILY_METRICS/MERCHANT_ID]"
+        - id: col-attempts
+          name: Attempts
+          formula: "[DAILY_METRICS/ATTEMPTS]"
+          format:
+            kind: number
+            formatString: ",.0f"
+        - id: col-approved
+          name: Approved attempts
+          formula: "[DAILY_METRICS/APPROVED_ATTEMPTS]"
+          format:
+            kind: number
+            formatString: ",.0f"
+        - id: col-amount
+          name: Approved amount USD
+          formula: "[DAILY_METRICS/APPROVED_AMOUNT_USD]"
+          format:
+            kind: number
+            formatString: "$,.2f"
+        - id: col-rate
+          name: Approval rate
+          formula: "[Approved attempts] / [Attempts]"
+          format:
+            kind: number
+            formatString: ",.2%"
+        - id: col-updated
+          name: Source Updated At
+          formula: "[DAILY_METRICS/SOURCE_UPDATED_AT]"
+      order: [col-date, col-merchant, col-attempts, col-approved, col-amount, col-rate, col-updated]
+  layout: |
+    <?xml version="1.0" encoding="utf-8"?>
+    <Page type="grid" gridTemplateColumns="repeat(24, 1fr)" gridTemplateRows="auto" id="merchant">
+      <Element elementId="page-title" gridColumn="1 / 25" gridRow="1 / 4"/>
+      <Element elementId="ctrl-merchant" gridColumn="1 / 13" gridRow="4 / 7"/>
+      <Element elementId="ctrl-date" gridColumn="13 / 25" gridRow="4 / 7"/>
+      <Element elementId="kpi-volume" gridColumn="1 / 9" gridRow="7 / 12"/>
+      <Element elementId="kpi-rate" gridColumn="9 / 17" gridRow="7 / 12"/>
+      <Element elementId="kpi-age" gridColumn="17 / 25" gridRow="7 / 12"/>
+      <Element elementId="daily-metrics" gridColumn="1 / 25" gridRow="12 / 28"/>
+    </Page>

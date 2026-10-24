@@ -1,7 +1,7 @@
 -- Chapter 19: Native App version, release directive, and local installation (section 3.2)
 -- Independent after the provider preparation in chapter19_3_native_app.sql.
--- Prerequisites: provider preparation and three uploaded files; see README.
--- Validation: documentation checked October 2026; not executed on a live Snowflake account.
+-- Prerequisites: provider preparation and four uploaded files; see README.
+-- Validation: documentation checked October 2026; SQL blocks run live on the author's sandbox account on 2026-10-24, including the four-file upload and the Streamlit 1.35.0 pin.
 -- Placeholder convention: <REPLACE: description> only for reader-specific values.
 -- Roles: USERADMIN creates roles; SYSADMIN owns lab objects; ACCOUNTADMIN only grants account privileges.
 -- Stop on any error. CREATE statements deliberately fail on existing lab tables/services.
@@ -29,11 +29,13 @@ USE WAREHOUSE BI_WH;
 SELECT COUNT(*) AS rows_in_app,
        SUM(approved_amount_usd) AS approved_volume_usd
 FROM ANALYTICS_APP.APP_PUBLIC.DAILY_METRICS;
--- UI verification: Data Products > Apps > ANALYTICS_APP.
--- Choose BI_WH if prompted. M100 must show 375.00 and 62.5%.
+-- UI verification: Catalog > Apps > ANALYTICS_APP.
+-- Choose BI_WH if prompted. M100 must show 375.00 and 62.50%.
 
 -- PRIVATE LISTING TEMPLATE (section 3.3; needs a second account; deliberately commented).
--- External distribution also needs DISTRIBUTION = EXTERNAL and a passed security review.
+-- Consumers outside your organization need DISTRIBUTION = EXTERNAL and a passed security review.
+-- A consumer account inside your organization can use an organization listing with no scan;
+-- drop the DISTRIBUTION line in that case.
 -- The listing pattern, manifest fields, and consumer steps follow Chapter 17's private listing.
 -- USE ROLE ACCOUNTADMIN;
 -- ALTER APPLICATION PACKAGE ANALYTICS_PKG SET DISTRIBUTION = EXTERNAL;

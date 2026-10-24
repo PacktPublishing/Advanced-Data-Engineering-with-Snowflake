@@ -15,7 +15,7 @@ import sys
 import yaml
 
 ROOT = Path(__file__).resolve().parent
-EXPECTED_EXCERPTS = 14  # printed sql, yaml, python, and markdown blocks; the bash block is not an excerpt
+EXPECTED_EXCERPTS = 15  # printed sql, yaml, python, and markdown blocks; the bash block is not an excerpt
 
 
 def main():
@@ -55,6 +55,13 @@ def main():
     assert "ZIPF(1, 2000, RANDOM())" in interactive
     assert "ADD TABLES" not in interactive, "tables are attached at creation with TABLES (...)"
     assert "ALTER INTERACTIVE TABLE ANALYTICS_DB.SERVING.DAILY_INTERACTIVE SUSPEND" in interactive
+    assert re.search(r"TABLES \([^)]*PAYMENT_ATTEMPTS_BENCH", interactive), \
+        "the standard benchmark table is attached for the standard_on_interactive run"
+    assert "USER_NAME => '<REPLACE: test user name>'" in interactive, \
+        "load results must read the test user's history, not CURRENT_USER"
+    assert "WHERE attempt_id = 12" in interactive, "freshness block missing"
+    fresh = interactive.split("-- FRESHNESS BLOCK", 1)[1].split("UPDATE", 1)[0]
+    assert "ALTER SESSION SET TIMEZONE = 'UTC'" in fresh, "freshness update must run in a UTC session"
 
     app_root = ROOT / "native_app"
     manifest = yaml.safe_load((app_root / "manifest.yml").read_text())
@@ -64,6 +71,8 @@ def main():
     ast.parse((app_root / "streamlit" / "app.py").read_text())
     app_sql = (app_root / "setup.sql").read_text()
     assert "FROM '/streamlit'" in app_sql and "MAIN_FILE = '/app.py'" in app_sql
+    env = yaml.safe_load((app_root / "streamlit" / "environment.yml").read_text())
+    assert "streamlit=1.35.0" in env["dependencies"], "Streamlit version must be pinned"
 
     install = (ROOT / "chapter19_3_install.sql").read_text()
     assert "REGISTER VERSION V1" in install and "RELEASE CHANNEL DEFAULT" in install
@@ -74,6 +83,8 @@ def main():
     spec = yaml.safe_load(agent_sql.split("FROM SPECIFICATION $$", 1)[1].split("$$;", 1)[0])
     names = {tool["tool_spec"]["name"] for tool in spec["tools"]}
     assert names == set(spec["tool_resources"])
+    assert spec["orchestration"]["tool_not_accessible"] == "reject", \
+        "a role without tool access must get an error, not a tool-less answer"
     assert "CREATE CORTEX AGENT" not in agent_sql
     assert not re.search(r"GRANT SELECT[^;]*TO ROLE NO_DATA_READER", agent_sql, re.S)
     assert not re.search(r"GRANT SELECT ON TABLE[^;]*PAYMENT_ATTEMPTS\s+TO ROLE BI_READER", agent_sql, re.S), \
@@ -81,6 +92,8 @@ def main():
 
     for client in ("chapter19_2_load_test.py", "chapter19_4_chat_client.py"):
         ast.parse((ROOT / client).read_text())
+    chat = (ROOT / "chapter19_4_chat_client.py").read_text()
+    assert 'event == "response.tool_result"' in chat, "generated SQL arrives in response.tool_result"
 
     skill = (ROOT / "cowork_skill" / "review-payment-performance" / "SKILL.md").read_text()
     front = yaml.safe_load(skill.split("---", 2)[1])
@@ -95,8 +108,9 @@ def main():
             assert any(excerpt in source for source in artifacts), \
                 "Unmatched manuscript code excerpt:\n" + excerpt[:200]
         assert len(excerpts) == EXPECTED_EXCERPTS, len(excerpts)
-    print("PASS: fixture arithmetic, SQL seed parity, warehouse limits, release channel, "
-          "application paths, Python syntax, agent YAML/grants, skill frontmatter")
+    print("PASS: fixture arithmetic, SQL seed parity, warehouse limits, benchmark attachment, "
+          "load-results user, release channel, application paths, Streamlit pin, Python syntax, "
+          "agent YAML/grants/tool rejection, skill frontmatter")
     if len(sys.argv) > 1:
         print(f"PASS: all {EXPECTED_EXCERPTS} manuscript code excerpts match companion files")
     print("Live Snowflake, BI, Native App, REST client and CoWork validation: NOT RUN")

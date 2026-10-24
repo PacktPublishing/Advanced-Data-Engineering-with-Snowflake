@@ -1,7 +1,7 @@
 -- Chapter 19: BI serving model, serving warehouse, and acceptance queries (sections 1.2 to 1.5)
 -- Independent after common setup; do not run every section by default.
 -- Prerequisites: chapter19_0_setup.sql. The multi-cluster statement needs Enterprise Edition or higher.
--- Validation: documentation checked October 2026; not executed on a live Snowflake account.
+-- Validation: documentation checked October 2026; SQL blocks run live on the author's sandbox account on 2026-10-24.
 -- Placeholder convention: <REPLACE: description> only for reader-specific values.
 -- Roles: USERADMIN creates roles; SYSADMIN owns lab objects; ACCOUNTADMIN only grants account privileges.
 -- Commented statements are optional or edition-specific; every uncommented statement runs in order.

@@ -1,14 +1,17 @@
 """Chapter 19, section 4.4: a streaming, multi-turn terminal client for PAYMENT_ANALYST.
 
-Needs: chapter19_4_agents.sql already run, plus a programmatic access token whose
-ROLE_RESTRICTION names the identity you are testing (Chapter 13, section 4.1 pattern):
-    ALTER USER ADD PROGRAMMATIC ACCESS TOKEN payment_chat
+Needs: chapter19_4_agents.sql already run, plus a programmatic access token for the test
+user whose ROLE_RESTRICTION names the role you are testing (Chapter 13 token pattern). Run as
+USERADMIN, which owns the test user when the setup's test user block created it:
+    ALTER USER <REPLACE: test user name> ADD PROGRAMMATIC ACCESS TOKEN payment_chat
         ROLE_RESTRICTION = 'BI_READER' DAYS_TO_EXPIRY = 1;
     export SNOWFLAKE_PAT='<REPLACE: token secret>'
     export SNOWFLAKE_ACCOUNT_URL='https://<REPLACE: account_identifier>.snowflakecomputing.com'
-Repeat with a NO_DATA_READER token for the restricted-identity case.
-Validation: syntax and the event parser checked locally against documented event
-shapes (October 2026); not run against a live account.
+Repeat with a NO_DATA_READER token named payment_chat_restricted. The agent rejects that
+run with an HTTP 4XX error because its spec sets tool_not_accessible: reject.
+Validation: run live on the author's sandbox account on 2026-10-24 for both identities. The
+SQL branch reads response.tool_result, where that run found the generated SQL; the revised
+branch was rerun live the same day and printed the SQL for both turns.
 A web interface must HTML-escape agent text before rendering it; this client prints to a terminal.
 """
 
@@ -30,14 +33,22 @@ def read_events(lines):
     for line in lines:
         if line == "":
             if data:
-                yield event, json.loads("\n".join(data))
+                yield event, _parse("\n".join(data))
             event, data = None, []
         elif line.startswith("event:"):
             event = line[len("event:"):].strip()
         elif line.startswith("data:"):
             data.append(line[len("data:"):].strip())
     if data:  # a stream that ends without a trailing blank line
-        yield event, json.loads("\n".join(data))
+        yield event, _parse("\n".join(data))
+
+
+def _parse(payload):
+    """Decode one event payload; keep non-JSON text instead of crashing."""
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError:
+        return {"text": payload}
 
 
 def ask(thread_id, parent_id, question):
@@ -57,12 +68,15 @@ def ask(thread_id, parent_id, question):
         for event, data in read_events(lines):
             if event == "response.text.delta":
                 print(data["text"], end="", flush=True)
-            elif event == "response.tool_result.analyst.delta":
-                delta = data.get("delta", {})
-                key = data.get("tool_use_id", "tool")
-                sql[key] = sql.get(key, "") + delta.get("sql", "")
+            elif event == "response.tool_result":
+                for item in data.get("content", []):
+                    statement = (item.get("json") or {}).get("sql")
+                    if statement:
+                        sql[data.get("tool_use_id", "tool")] = statement
             elif event == "metadata" and data["metadata"]["role"] == "assistant":
                 assistant_id = data["metadata"]["message_id"]
+            elif event == "response.warning":
+                print(f"\n[warning] {data.get('message', data)}")
             elif event == "error":
                 print(f"\n[error {data.get('code')}] {data.get('message')}")
                 return None
@@ -76,13 +90,19 @@ def main():
     thread = requests.post(f"{ACCOUNT_URL}/api/v2/cortex/threads",
                            headers={**AUTH, "Accept": "application/json"},
                            json={"origin_application": "ch19_chat"}, timeout=30)
-    thread.raise_for_status()
+    if not thread.ok:
+        raise SystemExit(f"Thread creation failed, HTTP {thread.status_code}: "
+                         f"{thread.text[:500]}")
     thread_id, parent_id = int(thread.json()["thread_id"]), 0
     while True:
         question = input("\nquestion> ").strip()
         if question.lower() in {"", "quit", "exit"}:
             break
-        assistant_id = ask(thread_id, parent_id, question)
+        try:
+            assistant_id = ask(thread_id, parent_id, question)
+        except requests.RequestException as exc:
+            print(f"Request failed: {exc}")
+            continue
         if assistant_id is not None:
             parent_id = assistant_id  # follow-ups continue from this answer
 

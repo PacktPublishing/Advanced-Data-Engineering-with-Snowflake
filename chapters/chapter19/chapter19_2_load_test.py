@@ -1,15 +1,22 @@
 """Chapter 19, section 2.3: concurrent dashboard-shape load against one warehouse.
 
 Needs: chapter19_0_setup.sql, chapter19_1_bi.sql, and the chapter19_2_interactive.sql
-blocks through reconciliation, with INTERACTIVE_WH running. A connection profile in
-~/.snowflake/connections.toml for a user who holds BI_READER (Chapter 7 pattern).
+blocks through the freshness block, with INTERACTIVE_WH running. A connection profile in
+~/.snowflake/connections.toml for the test user, who holds BI_READER (Chapter 7 pattern).
+Use key-pair authentication: each worker opens one session, and a browser or MFA prompt
+per session would stall the run. Python 3.11 or later.
     pip install -r requirements.txt
-Run once per warehouse, inside the same billed hour as the interactive warehouse resume:
-    python chapter19_2_load_test.py --label interactive --warehouse INTERACTIVE_WH \
-        --table ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS_INTERACTIVE
-    python chapter19_2_load_test.py --label standard --warehouse BI_WH \
-        --table ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS_BENCH
-Validation: syntax and the percentile helper checked locally; not run against a live account.
+Run three times, inside the same billed hour as the interactive warehouse resume, with the
+load results block in chapter19_2_interactive.sql after each run:
+    python chapter19_2_load_test.py --connection ch19_test --label standard \
+        --warehouse BI_WH --table ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS_BENCH
+    python chapter19_2_load_test.py --connection ch19_test --label interactive \
+        --warehouse INTERACTIVE_WH --table ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS_INTERACTIVE
+    python chapter19_2_load_test.py --connection ch19_test --label standard_on_interactive \
+        --warehouse INTERACTIVE_WH --table ANALYTICS_DB.SERVING.PAYMENT_ATTEMPTS_BENCH
+Validation: run live on the author's sandbox account on 2026-10-24 (three runs, connector 5.1.0,
+Python 3.12). The "over 5 s" count is measured on the client and includes network and client
+stalls; check a slow sample's elapsed time in Snowflake before calling it fallback.
 No credentials in this file. Every query carries QUERY_TAG analytics:load:<label>:<phase>.
 """
 
@@ -18,12 +25,18 @@ import csv
 import math
 import os
 import random
+import re
 import threading
 import time
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 import snowflake.connector
+
+# Connector 5.1 prints this FutureWarning on every connection, eight times per run.
+warnings.filterwarnings("ignore", category=FutureWarning,
+                        message=".*enable_server_session_keep_alive_auto_detection.*")
 
 QUERY = """
 SELECT event_date, COUNT(*) AS attempts,
@@ -49,41 +62,50 @@ def pick_parameters(rng):
     return {"merchant": merchant, "start": start.isoformat()}
 
 
-def run_worker(args, phase, deadline, samples, lock, seed):
+def run_worker(args, phases, samples, lock, seed):
     rng = random.Random(seed)
     with snowflake.connector.connect(
             connection_name=args.connection,
             role="BI_READER", warehouse=args.warehouse,
-            session_parameters={
-                "USE_CACHED_RESULT": False,
-                "QUERY_TAG": f"analytics:load:{args.label}:{phase}"}) as conn:
+            session_parameters={"USE_CACHED_RESULT": False}) as conn:
         cur = conn.cursor()
-        while time.monotonic() < deadline:
-            params = pick_parameters(rng)
-            started = time.perf_counter()
-            error = ""
-            try:
-                cur.execute(QUERY.format(table=args.table), params)
-                cur.fetchall()
-            except snowflake.connector.Error as exc:
-                error = f"{exc.errno}: {exc.msg}"
-            elapsed_ms = (time.perf_counter() - started) * 1000
-            with lock:
-                samples.append({"phase": phase, "merchant": params["merchant"],
-                                "start": params["start"],
-                                "elapsed_ms": round(elapsed_ms, 1),
-                                "query_id": cur.sfqid or "", "error": error})
+        for phase, deadline in phases:  # one session for warm-up and measurement
+            cur.execute("ALTER SESSION SET QUERY_TAG = "
+                        f"'analytics:load:{args.label}:{phase}'")
+            while time.monotonic() < deadline:
+                params = pick_parameters(rng)
+                started = time.perf_counter()
+                error, query_id = "", ""
+                try:
+                    cur.execute(QUERY.format(table=args.table), params)
+                    cur.fetchall()
+                    query_id = cur.sfqid or ""
+                except snowflake.connector.Error as exc:
+                    error = f"{exc.errno}: {exc.msg}"
+                    query_id = getattr(exc, "sfqid", None) or ""
+                elapsed_ms = (time.perf_counter() - started) * 1000
+                with lock:
+                    samples.append({"phase": phase, "merchant": params["merchant"],
+                                    "start": params["start"],
+                                    "elapsed_ms": round(elapsed_ms, 1),
+                                    "query_id": query_id, "error": error})
 
 
-def run_phase(args, phase, seconds, samples):
-    deadline = time.monotonic() + seconds
+def run_load(args, samples):
+    warmup_end = time.monotonic() + args.warmup
+    phases = [("warmup", warmup_end), ("measure", warmup_end + args.duration)]
     lock = threading.Lock()
     with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-        futures = [pool.submit(run_worker, args, phase, deadline,
-                               samples, lock, worker)
+        futures = [pool.submit(run_worker, args, phases, samples, lock, worker)
                    for worker in range(args.concurrency)]
     for future in futures:
         future.result()  # re-raise connection failures instead of hiding them
+
+
+def label(value):
+    if not re.fullmatch(r"[A-Za-z0-9_]+", value):
+        raise argparse.ArgumentTypeError("use letters, digits, and underscores only")
+    return value
 
 
 def percentile(values, fraction):
@@ -95,7 +117,7 @@ def percentile(values, fraction):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--label", required=True)
+    parser.add_argument("--label", required=True, type=label)
     parser.add_argument("--warehouse", required=True,
                         choices=("INTERACTIVE_WH", "BI_WH"))
     parser.add_argument("--table", required=True, choices=TABLES)
@@ -107,8 +129,7 @@ def main():
     args = parser.parse_args()
 
     samples = []
-    run_phase(args, "warmup", args.warmup, samples)
-    run_phase(args, "measure", args.duration, samples)
+    run_load(args, samples)
     if not samples:
         raise SystemExit("No queries completed; check the connection profile and grants.")
     measured = [s for s in samples if s["phase"] == "measure"]
